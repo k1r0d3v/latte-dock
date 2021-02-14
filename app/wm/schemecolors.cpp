@@ -36,6 +36,24 @@
 namespace Latte {
 namespace WindowSystem {
 
+
+QColor inactiveGrayFrom(const QColor &color)
+{
+    int gray = qGray(color.rgb());
+    if (gray <= 200)
+    {
+        gray += 55;
+        gray = qMax(gray, 115);
+    }
+    else gray -= 45;
+    return { gray, gray, gray };
+}
+
+double perceptiveLuminance(const QColor &color)
+{
+    return (0.299 * color.red() + 0.587 * color.green() + 0.114 * color.blue()) / 255.0F;
+}
+
 SchemeColors::SchemeColors(QObject *parent, QString scheme, bool plasmaTheme) :
     QObject(parent),
     m_basedOnPlasmaTheme(plasmaTheme)
@@ -57,6 +75,40 @@ SchemeColors::SchemeColors(QObject *parent, QString scheme, bool plasmaTheme) :
     }
 
     updateScheme();
+}
+
+SchemeColors::SchemeColors(QObject *parent, QColor color, QString fallback, bool plasmaTheme) :
+        QObject(parent),
+        m_basedOnPlasmaTheme(plasmaTheme)
+{
+    m_schemeName = "";
+
+    auto colorLuminance = perceptiveLuminance(color);
+    auto inactiveColor = inactiveGrayFrom(color);
+    auto lightTextColor = QColor(240, 240, 240);
+    auto darkTextColor = QColor(34, 34, 34);
+
+    m_activeBackgroundColor = color; // "BackgroundNormal"
+    m_activeTextColor = colorLuminance > 0.5 ? darkTextColor : lightTextColor; // "ForegroundNormal"
+    m_inactiveBackgroundColor = inactiveColor; // "BackgroundAlternate"
+    m_inactiveTextColor = inactiveColor; // "ForegroundInactive"
+
+    m_positiveTextColor = QColor(51, 149, 255); // "ForegroundPositive"
+    m_neutralTextColor = m_activeTextColor; // "ForegroundNeutral"
+    m_negativeTextColor = QColor(224, 56, 62); // "ForegroundNegative"
+
+    KSharedConfigPtr filePtr = KSharedConfig::openConfig(possibleSchemeFile(std::move(fallback)));
+    KConfigGroup buttonGroup = KConfigGroup(filePtr, "Colors:Button");
+    m_buttonTextColor = buttonGroup.readEntry("ForegroundNormal", QColor());
+    m_buttonBackgroundColor = buttonGroup.readEntry("BackgroundNormal", QColor());
+    m_buttonHoverColor = buttonGroup.readEntry("DecorationHover", QColor());
+    m_buttonFocusColor = buttonGroup.readEntry("DecorationFocus", QColor());
+
+    m_highlightColor = m_buttonFocusColor; // "BackgroundNormal"
+    auto buttonBackgroundColorLuminance = perceptiveLuminance(m_highlightColor);
+    m_highlightedTextColor = buttonBackgroundColorLuminance > 0.7 ? darkTextColor : lightTextColor; // "ForegroundNormal"
+
+    emit colorsChanged();
 }
 
 SchemeColors::~SchemeColors()
@@ -246,6 +298,5 @@ void SchemeColors::updateScheme()
 
     emit colorsChanged();
 }
-
 }
 }

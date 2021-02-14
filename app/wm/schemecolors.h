@@ -51,6 +51,7 @@ class SchemeColors: public QObject
 
 public:
     SchemeColors(QObject *parent, QString scheme, bool plasmaTheme = false);
+    SchemeColors(QObject *parent, QColor color, QString fallback = nullptr, bool plasmaTheme = false);
     ~SchemeColors() override;
 
     QString schemeName() const;

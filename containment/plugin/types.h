@@ -66,7 +66,8 @@ public:
     {
         NoneWindowColors = 0,
         ActiveWindowColors,
-        TouchingWindowColors
+        TouchingWindowColors,
+        MaximizedWindowColors,
     };
     Q_ENUM(WindowColorsGroup);
 

@@ -793,6 +793,10 @@ PlasmaComponents.Page {
                             toolTip: colorsGridLayout.colorsScriptIsPresent ?
                                              i18n("Colors are going to be based on windows that are touching the view") :
                                              i18n("Colors are going to be based on windows that are touching the view.\nWarning: You need to install Colors KWin Script from KDE Store")
+                        },{
+                            name: i18n("Maximized Window"),
+                            icon: "",
+                            toolTip: i18n("Colors are going to be based on the last active maximized window")
                         }
                     ]
 

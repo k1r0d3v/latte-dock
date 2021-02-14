@@ -81,6 +81,10 @@ Loader{
                 return selectedWindowsTracker.activeWindowScheme;
             }
 
+            if (root.windowColors === LatteContainment.Types.MaximizedWindowColors && latteView.windowsTracker.currentScreen.activeWindowMaximized) {
+                return selectedWindowsTracker.activeWindowScheme;
+            }
+
             if (root.windowColors === LatteContainment.Types.TouchingWindowColors && latteView.windowsTracker.currentScreen.touchingWindowScheme) {
                 //! we must track touching windows and when they are not ative
                 //! the active window scheme is used for convenience

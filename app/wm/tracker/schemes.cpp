@@ -124,15 +124,38 @@ void Schemes::setColorSchemeForWindow(WindowId wid, QString scheme)
     if (scheme == "kdeglobals") {
         //! a window that previously had an explicit set scheme now is set back to default scheme
         m_windowScheme.remove(wid);
-    } else {
-        QString schemeFile = SchemeColors::possibleSchemeFile(scheme);
-
-        if (!m_schemes.contains(schemeFile)) {
-            //! when this scheme file has not been loaded yet
-            m_schemes[schemeFile] = new SchemeColors(this, schemeFile);
+    }
+    else
+    {
+        if (scheme.startsWith("/reset") && m_windowScheme.contains(wid))
+        {
+            m_windowScheme.remove(wid);
         }
+        else if (scheme.startsWith("/"))
+        {
+            QString colorRGB = scheme.mid(1);
+            QColor color = QColor::fromRgb(colorRGB.toUInt());
+            if (!m_schemes.contains(colorRGB)) {
+                //! when this scheme file has not been loaded yet
+                auto globalSchemeIt = m_windowScheme.find("kdeglobals");
+                scheme = globalSchemeIt == m_windowScheme.end() ? nullptr : globalSchemeIt.value();
 
-        m_windowScheme[wid] = schemeFile;
+                m_schemes[colorRGB] = new SchemeColors(this, color, scheme);
+            }
+
+            m_windowScheme[wid] = colorRGB;
+        }
+        else
+        {
+            QString schemeFile = SchemeColors::possibleSchemeFile(scheme);
+
+            if (!m_schemes.contains(schemeFile)) {
+                //! when this scheme file has not been loaded yet
+                m_schemes[schemeFile] = new SchemeColors(this, schemeFile);
+            }
+
+            m_windowScheme[wid] = schemeFile;
+        }
     }
 
     emit colorSchemeChanged(wid);

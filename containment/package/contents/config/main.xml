@@ -150,6 +150,7 @@
             <choice name="NoneWindowColors"/>
             <choice name="ActiveWindowColors"/>
             <choice name="TouchingWindowColors"/>
+            <choice name="MaximizedWindowColors"/>
       </choices>
       <default>0</default>
       <label>which color palette is going to be used based on windows</label>
