@@ -36,21 +36,24 @@ Item {
         id: colorizedAppletShadow
         anchors.fill: colorizer
 
-        active: graphicsSystem.isAccelerated && plasmoid.configuration.appletShadowsEnabled && (appletColorizer.opacity>0)
+        active: appletItem.environment.isGraphicsSystemAccelerated
+                && plasmoid.configuration.appletShadowsEnabled
+                && (appletColorizer.opacity>0)
 
         sourceComponent: DropShadow{
             anchors.fill: parent
-            color: root.appShadowColor
+            color: appletItem.myView.itemShadow.shadowColor
             fast: true
             samples: 2 * radius
             source: colorizer
             radius: shadowSize
             verticalOffset: forcedShadow ? 0 : 2
 
-            readonly property int shadowSize : root.appShadowSize
+            readonly property int shadowSize : appletItem.myView.itemShadow.size
 
-            readonly property bool forcedShadow: root.forceTransparentPanel && plasmoid.configuration.appletShadowsEnabled
-                                                 && applet && applet.pluginName !== root.plasmoidName ? true : false
+            readonly property bool forcedShadow: root.forceTransparentPanel
+                                                 && plasmoid.configuration.appletShadowsEnabled
+                                                 && !appletItem.communicator.indexerIsSupported ? true : false
         }
     }
 }

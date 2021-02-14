@@ -45,7 +45,6 @@ function activateTask(index, model, modifiers, task) {
     } else if (task.isGroupParent) {
         task.activateNextTask();
        // if (backend.canPresentWindows()) {
-            //task.toolTipAreaItem.hideToolTip();
         //    backend.presentWindows(model.LegacyWinIdList);
        // }
         /*} else if (groupDialog.visible) {
@@ -122,7 +121,7 @@ function insertIndexAt(above, x, y) {
     } else {
         var distance = root.vertical ? y : x;
         //var step = root.vertical ? LayoutManager.taskWidth() : LayoutManager.taskHeight();
-        var step = metrics.totals.length;
+        var step = appletAbilities.metrics.totals.length;
         var stripe = Math.ceil(distance / step);
 
         /* if (stripe === LayoutManager.calculateStripes()) {

@@ -24,15 +24,16 @@
 
 // local
 #include "importer.h"
-#include "launcherssignals.h"
+#include "syncedlaunchers.h"
 #include "../infoview.h"
 #include "../screenpool.h"
 #include "../data/layoutdata.h"
+#include "../data/generictable.h"
 #include "../layout/abstractlayout.h"
 #include "../layout/centrallayout.h"
-#include "../settings/dialogs/settingsdialog.h"
 #include "../settings/universalsettings.h"
 #include "../templates/templatesmanager.h"
+#include "../tools/commontools.h"
 
 // Qt
 #include <QDir>
@@ -49,14 +50,13 @@ namespace Layouts {
 Manager::Manager(QObject *parent)
     : QObject(parent),
       m_importer(new Importer(this)),
-      m_launchersSignals(new LaunchersSignals(this))
+      m_syncedLaunchers(new SyncedLaunchers(this))
 {
     m_corona = qobject_cast<Latte::Corona *>(parent);
     //! needs to be created AFTER corona assignment
     m_synchronizer = new Synchronizer(this);
 
     if (m_corona) {
-
         connect(m_synchronizer, &Synchronizer::centralLayoutsChanged, this, &Manager::centralLayoutsChanged);
         connect(m_synchronizer, &Synchronizer::currentLayoutIsSwitching, this, &Manager::currentLayoutIsSwitching);
     }
@@ -65,7 +65,7 @@ Manager::Manager(QObject *parent)
 Manager::~Manager()
 {
     m_importer->deleteLater();
-    m_launchersSignals->deleteLater();
+    m_syncedLaunchers->deleteLater();
 
     //! no needed because Latte:Corona is calling it at better place
     // unload();
@@ -87,7 +87,7 @@ void Manager::init()
 
         //startup create what is necessary....
         if (!layoutsDir.exists()) {
-            QDir(QDir::homePath() + "/.config").mkdir("latte");
+            QDir(Latte::configPath()).mkdir("latte");
         }
 
         QString defpath = m_corona->templatesManager()->newLayout(i18n("My Layout"), i18n(Templates::DEFAULTLAYOUTTEMPLATENAME));
@@ -104,6 +104,13 @@ void Manager::init()
         } else {
             m_corona->universalSettings()->setSingleModeLayoutName(i18n("My Layout"));
         }
+    }
+
+    //! Custom Templates path creation
+    QDir localTemplatesDir(Latte::configPath() + "/latte/templates");
+
+    if (!localTemplatesDir.exists()) {
+        QDir(Latte::configPath() + "/latte").mkdir("templates");
     }
 
     //! Check if the multiple-layouts hidden file is present, add it if it isnt
@@ -131,9 +138,9 @@ Importer *Manager::importer()
     return m_importer;
 }
 
-LaunchersSignals *Manager::launchersSignals() const
+SyncedLaunchers *Manager::syncedLaunchers() const
 {
-    return m_launchersSignals;
+    return m_syncedLaunchers;
 }
 
 Synchronizer *Manager::synchronizer() const
@@ -159,6 +166,32 @@ QStringList Manager::centralLayoutsNames()
 QStringList Manager::currentLayoutsNames() const
 {
     return m_synchronizer->currentLayoutsNames();
+}
+
+QStringList Manager::viewTemplateNames() const
+{
+    Latte::Data::GenericTable<Data::Generic> viewtemplates = m_corona->templatesManager()->viewTemplates();
+
+    QStringList names;
+
+    for(int i=0; i<viewtemplates.rowCount(); ++i) {
+        names << viewtemplates[i].name;
+    }
+
+    return names;
+}
+
+QStringList Manager::viewTemplateIds() const
+{
+    Latte::Data::GenericTable<Data::Generic> viewtemplates = m_corona->templatesManager()->viewTemplates();
+
+    QStringList ids;
+
+    for(int i=0; i<viewtemplates.rowCount(); ++i) {
+        ids << viewtemplates[i].id;
+    }
+
+    return ids;
 }
 
 QList<CentralLayout *> Manager::currentLayouts() const

@@ -26,9 +26,9 @@ import org.kde.latte.core 0.2 as LatteCore
 
 import org.kde.latte.private.containment 0.1 as LatteContainment
 
+import org.kde.latte.abilities.items 0.1 as AbilityItem
+
 import "loaders" as Loaders
-import "indicator" as Indicator
-import "../applet/indicator" as AppletIndicator
 
 Loader {
     id: environmentLoader
@@ -38,7 +38,7 @@ Loader {
 
     property int alignment: LatteCore.Types.BottomEdgeCenterAlign
 
-    readonly property bool useAllLayouts: root.panelAlignment === LatteCore.Types.Justify
+    readonly property bool useAllLayouts: root.myView.alignment === LatteCore.Types.Justify
 
     readonly property int localThickness: active ? metrics.totals.thickness + metrics.margin.screenEdge : 0
     readonly property int length: {
@@ -213,17 +213,32 @@ Loader {
         }
 
         //! Background Indicator
-        Indicator.Bridge{
-            id: indicatorBridge
-        }
-
-        //! Indicator Back Layer
-        Indicator.Loader{
+        AbilityItem.IndicatorLevel {
             id: indicatorBackLayer
-            level: AppletIndicator.LevelOptions {
-                id: backLevelOptions
-                isBackground: true
-                bridge: indicatorBridge
+            anchors.fill: parent
+
+            level.isDrawn: root.indicators.isEnabled
+            level.isBackground: true
+            level.indicator: AbilityItem.IndicatorObject{
+                animations: root.animations
+                metrics: root.metrics
+                host: root.indicators
+
+                isEmptySpace: true
+                isPressed: mainArea.pressed
+                panelOpacity: root.background.currentOpacity
+                shadowColor: root.myView.itemShadow.shadowSolidColor
+                palette: colorizerManager.applyTheme
+
+                iconBackgroundColor: "brown"
+                iconGlowColor: "pink"
+            }
+
+            Connections {
+                target: mainArea
+                enabled: root.indicators.info.needsMouseEventCoordinates
+                onPressed: indicatorBackLayer.level.mousePressed(mouse.x, mouse.y, mouse.button);
+                onReleased: indicatorBackLayer.level.mouseReleased(mouse.x, mouse.y, mouse.button);
             }
         }
     }

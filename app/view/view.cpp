@@ -28,6 +28,7 @@
 #include "settings/primaryconfigview.h"
 #include "settings/secondaryconfigview.h"
 #include "settings/viewsettingsfactory.h"
+#include "settings/widgetexplorerview.h"
 #include "../apptypes.h"
 #include "../lattecorona.h"
 #include "../data/layoutdata.h"
@@ -38,6 +39,7 @@
 #include "../plasma/extended/theme.h"
 #include "../screenpool.h"
 #include "../settings/universalsettings.h"
+#include "../settings/exporttemplatedialog/exporttemplatedialog.h"
 #include "../shortcuts/globalshortcuts.h"
 #include "../shortcuts/shortcutstracker.h"
 
@@ -178,6 +180,7 @@ View::View(Plasma::Corona *corona, QScreen *targetScreen, bool byPassWM)
         }
 
         connect(this->containment(), SIGNAL(statusChanged(Plasma::Types::ItemStatus)), SLOT(statusChanged(Plasma::Types::ItemStatus)));
+        connect(this->containment(), &Plasma::Containment::showAddWidgetsInterface, this, &View::showWidgetExplorer);
         connect(this->containment(), &Plasma::Containment::userConfiguringChanged, this, [&]() {
             emit inEditModeChanged();
         });
@@ -190,6 +193,7 @@ View::View(Plasma::Corona *corona, QScreen *targetScreen, bool byPassWM)
             m_primaryConfigView->setParentView(this, true);
         }
 
+        emit containmentActionsChanged();
     }, Qt::DirectConnection);
 
     m_corona = qobject_cast<Latte::Corona *>(this->corona());
@@ -278,7 +282,7 @@ void View::init(Plasma::Containment *plasma_containment)
     connect(this, &QQuickWindow::heightChanged, this, &View::updateAbsoluteGeometry);
 
     connect(this, &View::fontPixelSizeChanged, this, &View::editThicknessChanged);
-    connect(this, &View::normalHighestThicknessChanged, this, &View::editThicknessChanged);
+    connect(this, &View::maxNormalThicknessChanged, this, &View::editThicknessChanged);
 
     connect(this, &View::activitiesChanged, this, &View::applyActivitiesToWindows);
 
@@ -450,6 +454,12 @@ void View::copyView()
     m_layout->copyView(containment());
 }
 
+void View::exportTemplate()
+{
+    Latte::Settings::Dialog::ExportTemplateDialog *exportDlg = new Latte::Settings::Dialog::ExportTemplateDialog(this);
+    exportDlg->show();
+}
+
 void View::removeView()
 {
     if (m_layout && m_layout->viewsCount() > 1) {
@@ -520,6 +530,15 @@ void View::showConfigurationInterface(Plasma::Applet *applet)
         m_appletConfigView = new PlasmaQuick::ConfigView(applet);
         m_appletConfigView.data()->init();
         m_appletConfigView->show();
+    }
+}
+
+void View::showWidgetExplorer(const QPointF &point)
+{
+    auto widgetExplorerView = m_corona->viewSettingsFactory()->widgetExplorerView(this);
+
+    if (!widgetExplorerView->isVisible()) {
+        widgetExplorerView->showAfter(250);
     }
 }
 
@@ -613,7 +632,7 @@ void View::statusChanged(Plasma::Types::ItemStatus status)
 
 void View::addTransientWindow(QWindow *window)
 {
-    if (!m_transientWindows.contains(window) && !window->title().startsWith("#debugwindow#")) {
+    if (!m_transientWindows.contains(window) && !window->flags().testFlag(Qt::ToolTip) && !window->title().startsWith("#debugwindow#")) {
         m_transientWindows.append(window);
 
         QString winPtrStr = "0x" + QString::number((qulonglong)window,16);
@@ -716,15 +735,6 @@ bool View::contextMenuIsShown() const
     return m_contextMenu->menu();
 }
 
-int View::currentThickness() const
-{
-    if (formFactor() == Plasma::Types::Vertical) {
-        return m_effects->mask().isNull() ? width() : m_effects->mask().width() - m_effects->innerShadow();
-    } else {
-        return m_effects->mask().isNull() ? height() : m_effects->mask().height() - m_effects->innerShadow();
-    }
-}
-
 int View::normalThickness() const
 {
     return m_normalThickness;
@@ -740,19 +750,19 @@ void View::setNormalThickness(int thickness)
     emit normalThicknessChanged();
 }
 
-int View::normalHighestThickness() const
+int View::maxNormalThickness() const
 {
-    return m_normalHighestThickness;
+    return m_maxNormalThickness;
 }
 
-void View::setNormalHighestThickness(int thickness)
+void View::setMaxNormalThickness(int thickness)
 {
-    if (m_normalHighestThickness == thickness) {
+    if (m_maxNormalThickness == thickness) {
         return;
     }
 
-    m_normalHighestThickness = thickness;
-    emit normalHighestThicknessChanged();
+    m_maxNormalThickness = thickness;
+    emit maxNormalThicknessChanged();
 }
 
 int View::headThicknessGap() const
@@ -910,7 +920,9 @@ int View::editThickness() const
     int ruler_height{m_fontPixelSize};
     int header_height{m_fontPixelSize + 2*smallspacing};
 
-    return m_normalHighestThickness + ruler_height + header_height + 6*smallspacing;
+    int edgeThickness = behaveAsPlasmaPanel() && screenEdgeMarginEnabled() ? m_screenEdgeMargin : 0;
+
+    return edgeThickness + m_maxNormalThickness + ruler_height + header_height + 6*smallspacing;
 }
 
 int View::maxThickness() const
@@ -1485,9 +1497,14 @@ void View::releaseGrab()
     QCoreApplication::instance()->sendEvent(this, &e);
 }
 
-QVariantList View::containmentActions()
+QVariantList View::containmentActions() const
 {
     QVariantList actions;
+
+    if (!containment()) {
+        return actions;
+    }
+
     /*if (containment()->corona()->immutability() != Plasma::Types::Mutable) {
         return actions;
     }*/

@@ -525,6 +525,164 @@ QList<Plasma::Containment *> Storage::importLayoutFile(const Layout::GenericLayo
     return importedDocks;
 }
 
+ViewDelayedCreationData Storage::newView(const Layout::GenericLayout *destination, const QString &templateFile)
+{
+    if (!destination || !destination->corona()) {
+        return ViewDelayedCreationData();
+    }
+
+    qDebug() << "new view for layout";
+    //! Setting mutable for create a containment
+    destination->corona()->setImmutability(Plasma::Types::Mutable);
+
+    //! update ids to unique ones
+    QString temp2File = newUniqueIdsLayoutFromFile(destination, templateFile);
+
+    //! Finally import the configuration
+    QList<Plasma::Containment *> importedViews = importLayoutFile(destination, temp2File);
+
+    Plasma::Containment *newContainment = (importedViews.size() == 1 ? importedViews[0] : nullptr);
+
+    if (!newContainment || !newContainment->kPackage().isValid()) {
+        qWarning() << "the requested containment plugin can not be located or loaded from:" << templateFile;
+        return ViewDelayedCreationData();
+    }
+
+    auto config = newContainment->config();
+    int primaryScrId = destination->corona()->screenPool()->primaryScreenId();
+
+    QList<Plasma::Types::Location> edges = destination->freeEdges(primaryScrId);
+    qDebug() << "org.kde.latte current template edge : " << newContainment->location() << " free edges :: " << edges;
+
+    //! if selected template screen edge is not free
+    if (!edges.contains(newContainment->location())) {
+        if (edges.count() > 0) {
+            newContainment->setLocation(edges.at(0));
+        } else {
+            newContainment->setLocation(Plasma::Types::BottomEdge);
+        }
+    }
+
+    config.writeEntry("onPrimary", true);
+    config.writeEntry("lastScreen", primaryScrId);
+
+    newContainment->config().sync();
+
+    ViewDelayedCreationData result;
+
+    result.containment = newContainment;
+    result.forceOnPrimary = false;
+    result.explicitScreen = primaryScrId;
+    result.reactToScreenChange = false;
+
+    return result;
+}
+
+bool Storage::exportTemplate(const QString &originFile, const QString &destinationFile,const Data::AppletsTable &approvedApplets)
+{
+    if (originFile.isEmpty() || !QFile(originFile).exists() || destinationFile.isEmpty()) {
+        return false;
+    }
+
+    if (QFile(destinationFile).exists()) {
+        QFile::remove(destinationFile);
+    }
+
+    QFile(originFile).copy(destinationFile);
+
+    KSharedConfigPtr destFilePtr = KSharedConfig::openConfig(destinationFile);
+    KConfigGroup containments = KConfigGroup(destFilePtr, "Containments");
+
+    for (const auto &cId : containments.groupList()) {
+        auto applets = containments.group(cId).group("Applets");
+        for (const auto &aId: applets.groupList()) {
+            QString pluginId = applets.group(aId).readEntry("plugin", "");
+
+            if (!approvedApplets.containsId(pluginId) && !isSubContainment(applets.group(aId))) {
+                //!remove all configuration for that applet
+                for (const auto &configId: applets.group(aId).groupList()) {
+                    applets.group(aId).group(configId).deleteGroup();
+                }
+            }
+        }
+    }
+
+    containments.sync();
+
+    return true;
+}
+
+bool Storage::exportTemplate(const Layout::GenericLayout *layout, Plasma::Containment *containment, const QString &destinationFile, const Data::AppletsTable &approvedApplets)
+{
+    if (!layout || !containment || destinationFile.isEmpty()) {
+        return false;
+    }
+
+    if (QFile(destinationFile).exists()) {
+        QFile::remove(destinationFile);
+    }
+
+    KSharedConfigPtr destFilePtr = KSharedConfig::openConfig(destinationFile);
+    KConfigGroup copied_conts = KConfigGroup(destFilePtr, "Containments");
+    KConfigGroup copied_c1 = KConfigGroup(&copied_conts, QString::number(containment->id()));
+
+    containment->config().copyTo(&copied_c1);
+
+    //!investigate if there are subcontainments in the containment to copy also
+
+    //! subId, subAppletId
+    QHash<uint, QString> subInfo;
+    auto applets = containment->config().group("Applets");
+
+    for (const auto &applet : applets.groupList()) {
+        int tSubId = subContainmentId(applets.group(applet));
+
+        //! It is a subcontainment !!!
+        if (isValid(tSubId)) {
+            subInfo[tSubId] = applet;
+            qDebug() << "subcontainment with id "<< tSubId << " was found in the containment... ::: " << containment->id();
+        }
+    }
+
+    if (subInfo.count() > 0) {
+        for(const auto subId : subInfo.keys()) {
+            Plasma::Containment *subcontainment{nullptr};
+
+            for (const auto containment : layout->corona()->containments()) {
+                if (containment->id() == subId) {
+                    subcontainment = containment;
+                    break;
+                }
+            }
+
+            if (subcontainment) {
+                KConfigGroup copied_sub = KConfigGroup(&copied_conts, QString::number(subcontainment->id()));
+                subcontainment->config().copyTo(&copied_sub);
+            }
+        }
+    }
+    //! end of subcontainments specific code
+
+    //! clear applets that are not approved
+    for (const auto &cId : copied_conts.groupList()) {
+        auto applets = copied_conts.group(cId).group("Applets");
+        for (const auto &aId: applets.groupList()) {
+            QString pluginId = applets.group(aId).readEntry("plugin", "");
+
+            if (!approvedApplets.containsId(pluginId) && !isSubContainment(applets.group(aId))) {
+                //!remove all configuration for that applet
+                for (const auto &configId: applets.group(aId).groupList()) {
+                    applets.group(aId).group(configId).deleteGroup();
+                }
+            }
+        }
+    }
+
+    copied_conts.sync();
+
+    return true;
+}
+
 ViewDelayedCreationData Storage::copyView(const Layout::GenericLayout *layout, Plasma::Containment *containment)
 {
     if (!containment || !layout->corona()) {
@@ -540,8 +698,9 @@ ViewDelayedCreationData Storage::copyView(const Layout::GenericLayout *layout, P
     //! WE NEED A WAY TO COPY A CONTAINMENT!!!!
     QFile copyFile(temp1File);
 
-    if (copyFile.exists())
+    if (copyFile.exists()) {
         copyFile.remove();
+    }
 
     KSharedConfigPtr newFile = KSharedConfig::openConfig(temp1File);
     KConfigGroup copied_conts = KConfigGroup(newFile, "Containments");
@@ -816,7 +975,13 @@ Data::Applet Storage::metadata(const QString &pluginId)
     if (pkg.isValid()) {
         data.name = pkg.metadata().name();
         data.description = pkg.metadata().description();
-        data.icon = pkg.metadata().iconName();
+
+        QString iconName = pkg.metadata().iconName();
+        if (!iconName.startsWith("/") && iconName.contains("/")) {
+            data.icon = QFileInfo(pkg.metadata().fileName()).absolutePath() + "/" + iconName;
+        } else {
+            data.icon = iconName;
+        }
     }
 
     return data;
@@ -933,9 +1098,9 @@ Data::AppletsTable Storage::plugins(const QString &layoutfile, const int contain
                 if (!knownapplets.containsId(pluginId) && !unknownapplets.containsId(pluginId)) {
                     Data::Applet appletdata = metadata(pluginId);
 
-                    if (appletdata.isValid()) {
+                    if (appletdata.isInstalled()) {
                         knownapplets.insertBasedOnName(appletdata);
-                    } else {
+                    } else if (appletdata.isValid()) {
                         unknownapplets.insertBasedOnId(appletdata);
                     }
                 }

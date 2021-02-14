@@ -27,6 +27,7 @@
 #include "../screenpool.h"
 #include "../layout/abstractlayout.h"
 #include "../settings/universalsettings.h"
+#include "../tools/commontools.h"
 
 // Qt
 #include <QFile>
@@ -63,17 +64,17 @@ Importer::~Importer()
 
 bool Importer::updateOldConfiguration()
 {
-    QFile oldAppletsFile(QDir::homePath() + "/.config/lattedock-appletsrc");
+    QFile oldAppletsFile(Latte::configPath() + "/lattedock-appletsrc");
 
     if (!oldAppletsFile.exists()) {
         return false;
     }
 
     //! import standard old configuration and create the relevant layouts
-    importOldLayout(QDir::homePath() + "/.config/lattedock-appletsrc", i18n("My Layout"));
-    importOldLayout(QDir::homePath() + "/.config/lattedock-appletsrc", i18n("Alternative"), true);
+    importOldLayout(Latte::configPath() + "/lattedock-appletsrc", i18n("My Layout"));
+    importOldLayout(Latte::configPath() + "/lattedock-appletsrc", i18n("Alternative"), true);
 
-    QFile extFile(QDir::homePath() + "/.config/lattedockextrc");
+    QFile extFile(Latte::configPath() + "/lattedockextrc");
 
     //! import also the old user layouts into the new architecture
     if (extFile.exists()) {
@@ -268,7 +269,7 @@ QString Importer::layoutCanBeImported(QString oldAppletsPath, QString newName, Q
     QDir layoutDir(exportDirectory.isNull() ? layoutUserDir() : exportDirectory);
 
     if (!layoutDir.exists() && exportDirectory.isNull()) {
-        QDir(QDir::homePath() + "/.config").mkdir("latte");
+        QDir(Latte::configPath()).mkdir("latte");
     }
 
     //! set up the new layout name
@@ -397,10 +398,30 @@ bool Importer::exportFullConfiguration(QString file)
         return false;
     }
 
-    archive.addLocalFile(QString(QDir::homePath() + "/.config/lattedockrc"), QStringLiteral("lattedockrc"));
+    archive.addLocalFile(QString(Latte::configPath() + "/lattedockrc"), QStringLiteral("lattedockrc"));
 
     for(const auto &layoutName : availableLayouts()) {
         archive.addLocalFile(layoutUserFilePath(layoutName), QString("latte/" + layoutName + ".layout.latte"));
+    }
+
+    //! custom templates
+    QDir templatesDir(Latte::configPath() + "/latte/templates");
+    QStringList filters;
+    filters.append(QString("*.layout.latte"));
+    QStringList templates = templatesDir.entryList(filters, QDir::Files | QDir::Hidden | QDir::NoSymLinks);
+
+    for (int i=0; i<templates.count(); ++i) {
+        QString templatePath = templatesDir.path() + "/" + templates[i];
+        archive.addLocalFile(templatePath, QString("latte/templates/" + templates[i]));
+    }
+
+    filters.clear();
+    filters.append(QString("*.view.latte"));
+    templates = templatesDir.entryList(filters, QDir::Files | QDir::Hidden | QDir::NoSymLinks);
+
+    for (int i=0; i<templates.count(); ++i) {
+        QString templatePath = templatesDir.path() + "/" + templates[i];
+        archive.addLocalFile(templatePath, QString("latte/templates/" + templates[i]));
     }
 
     archive.close();
@@ -515,7 +536,7 @@ bool Importer::importHelper(QString fileName)
         latteDir.removeRecursively();
     }
 
-    archive.directory()->copyTo(QString(QDir::homePath() + "/.config"));
+    archive.directory()->copyTo(Latte::configPath());
 
     return true;
 }
@@ -591,7 +612,7 @@ bool Importer::layoutExists(QString layoutName)
 
 QString Importer::layoutUserDir()
 {
-    return QString(QDir::homePath() + "/.config/latte");
+    return QString(Latte::configPath() + "/latte");
 }
 
 QString Importer::layoutUserFilePath(QString layoutName)

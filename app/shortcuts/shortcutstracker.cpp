@@ -19,6 +19,7 @@
 
 // local
 #include "shortcutstracker.h"
+#include "../tools/commontools.h"
 
 // Qt
 #include <QAction>
@@ -56,7 +57,7 @@ void ShortcutsTracker::initGlobalShortcutsWatcher()
         m_badgesForActivate << QString();
     }
 
-    const QString globalShortcutsFilePath = QDir::homePath() + "/.config/" + GLOBALSHORTCUTSCONFIG;
+    const QString globalShortcutsFilePath = Latte::configPath() + "/" + GLOBALSHORTCUTSCONFIG;
     m_shortcutsConfigPtr = KSharedConfig::openConfig(globalShortcutsFilePath);
 
     KDirWatch::self()->addFile(globalShortcutsFilePath);
@@ -125,33 +126,22 @@ void ShortcutsTracker::parseGlobalShortcuts()
 {
     KConfigGroup latteGroup = KConfigGroup(m_shortcutsConfigPtr, "lattedock");
 
-    //! make sure that latte dock records in global shortcuts where found correctly
-    bool recordExists{true};
-
-    if (!latteGroup.exists()) {
-        recordExists = false;
-    }
-
-    if (recordExists) {
-        for (int i = 1; i <= 19; ++i) {
-            QString entry = "activate entry " + QString::number(i);
-
-            if (!latteGroup.hasKey(entry)) {
-                recordExists = false;
-                break;
-            }
-        }
-    }
-
-    if (recordExists) {
+    if (latteGroup.exists()) {
         m_badgesForActivate.clear();
         m_appletShortcuts.clear();
 
         for (int i = 1; i <= 19; ++i) {
             QString entry = "activate entry " + QString::number(i);
-            QStringList records = latteGroup.readEntry(entry, QStringList());
 
-            m_badgesForActivate << shortcutToBadge(records);
+            if (latteGroup.hasKey(entry)) {
+                QStringList records = latteGroup.readEntry(entry, QStringList());
+                if (records.count() > 0) {
+                    records[0] = records[0].split("\t")[0];
+                }
+                m_badgesForActivate << shortcutToBadge(records);
+            } else {
+                m_badgesForActivate << "";
+            }
         }
 
         m_basedOnPositionEnabled = (!m_badgesForActivate[0].isEmpty() && !m_badgesForActivate[1].isEmpty());
@@ -165,8 +155,8 @@ void ShortcutsTracker::parseGlobalShortcuts()
             }
         }
 
-        qDebug() << "badges updated to :: " << m_badgesForActivate;
-        qDebug() << "applet shortcuts updated to :: " << m_appletShortcuts;
+        qDebug() << "badges based on position updated to :: " << m_badgesForActivate;
+        qDebug() << "badges for applet shortcuts updated to :: " << m_appletShortcuts;
 
         emit badgesForActivateChanged();
     }

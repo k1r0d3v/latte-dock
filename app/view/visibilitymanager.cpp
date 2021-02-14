@@ -178,6 +178,22 @@ VisibilityManager::~VisibilityManager()
     }
 }
 
+//! Struts
+int VisibilityManager::strutsThickness() const
+{
+    return m_strutsThickness;
+}
+
+void VisibilityManager::setStrutsThickness(int thickness)
+{
+    if (m_strutsThickness == thickness) {
+        return;
+    }
+
+    m_strutsThickness = thickness;
+    emit strutsThicknessChanged();
+}
+
 Types::Visibility VisibilityManager::mode() const
 {
     return m_mode;
@@ -202,6 +218,9 @@ void VisibilityManager::setViewOnFrontLayer()
 {
     m_wm->setViewExtraFlags(m_latteView, true);
     setIsBelowLayer(false);
+    if (KWindowSystem::isPlatformX11()) {
+        m_latteView->raise();
+    }
 }
 
 void VisibilityManager::setMode(Latte::Types::Visibility mode)
@@ -254,7 +273,7 @@ void VisibilityManager::setMode(Latte::Types::Visibility mode)
             updateStrutsBasedOnLayoutsAndActivities();
         }
 
-        m_connections[base] = connect(m_latteView, &Latte::View::normalThicknessChanged, this, [&]() {
+        m_connections[base] = connect(this, &VisibilityManager::strutsThicknessChanged, this, [&]() {
             updateStrutsBasedOnLayoutsAndActivities();
         });
 
@@ -367,11 +386,11 @@ void VisibilityManager::setMode(Latte::Types::Visibility mode)
 
 void VisibilityManager::updateStrutsBasedOnLayoutsAndActivities(bool forceUpdate)
 {
-    bool multipleLayoutsAndCurrent = (m_corona->layoutsManager()->memoryUsage() == MemoryUsage::MultipleLayouts
-                                      && m_latteView->layout() && !m_latteView->positioner()->inLocationAnimation()
+    bool inMultipleLayoutsAndCurrent = (m_corona->layoutsManager()->memoryUsage() == MemoryUsage::MultipleLayouts
+                                      && m_latteView->layout() && !m_latteView->positioner()->inRelocationAnimation()
                                       && m_latteView->layout()->isCurrent());
 
-    if (m_corona->layoutsManager()->memoryUsage() == MemoryUsage::SingleLayout || multipleLayoutsAndCurrent) {
+    if (m_strutsThickness>0 && (m_corona->layoutsManager()->memoryUsage() == MemoryUsage::SingleLayout || inMultipleLayoutsAndCurrent)) {
         QRect computedStruts = acceptableStruts();
         if (m_publishedStruts != computedStruts || forceUpdate) {
             //! Force update is needed when very important events happen in DE and there is a chance
@@ -392,29 +411,26 @@ QRect VisibilityManager::acceptableStruts()
 {
     QRect calcs;
 
-    int screenEdgeMargin = (m_latteView->behaveAsPlasmaPanel() && m_latteView->screenEdgeMarginEnabled()) ? m_latteView->screenEdgeMargin() : 0;
-    int shownThickness = m_latteView->normalThickness() + screenEdgeMargin;
-
     switch (m_latteView->location()) {
     case Plasma::Types::TopEdge: {
-        calcs = QRect(m_latteView->x(), m_latteView->screenGeometry().top(), m_latteView->width(), shownThickness);
+        calcs = QRect(m_latteView->x(), m_latteView->screenGeometry().top(), m_latteView->width(), m_strutsThickness);
         break;
     }
 
     case Plasma::Types::BottomEdge: {
-        int y = m_latteView->screenGeometry().bottom() - shownThickness + 1 /* +1, is needed in order to not leave a gap at screen_edge*/;
-        calcs = QRect(m_latteView->x(), y, m_latteView->width(), shownThickness);
+        int y = m_latteView->screenGeometry().bottom() - m_strutsThickness + 1 /* +1, is needed in order to not leave a gap at screen_edge*/;
+        calcs = QRect(m_latteView->x(), y, m_latteView->width(), m_strutsThickness);
         break;
     }
 
     case Plasma::Types::LeftEdge: {
-        calcs = QRect(m_latteView->screenGeometry().left(), m_latteView->y(), shownThickness, m_latteView->height());
+        calcs = QRect(m_latteView->screenGeometry().left(), m_latteView->y(), m_strutsThickness, m_latteView->height());
         break;
     }
 
     case Plasma::Types::RightEdge: {
-        int x = m_latteView->screenGeometry().right() - shownThickness + 1 /* +1, is needed in order to not leave a gap at screen_edge*/;
-        calcs = QRect(x, m_latteView->y(), shownThickness, m_latteView->height());
+        int x = m_latteView->screenGeometry().right() - m_strutsThickness + 1 /* +1, is needed in order to not leave a gap at screen_edge*/;
+        calcs = QRect(x, m_latteView->y(), m_strutsThickness, m_latteView->height());
         break;
     }
     }
@@ -495,8 +511,7 @@ void VisibilityManager::addBlockHidingEvent(const QString &type)
     if (m_blockHidingEvents.contains(type) || type.isEmpty()) {
         return;
     }
-
-    //qDebug() << "  {{ ++++ adding block hiding event :: " << type;
+    //qDebug() << " org.kde.late {{ ++++ adding block hiding event :: " << type;
 
     bool prevHidingIsBlocked = hidingIsBlocked();
 
@@ -512,7 +527,7 @@ void VisibilityManager::removeBlockHidingEvent(const QString &type)
     if (!m_blockHidingEvents.contains(type) || type.isEmpty()) {
         return;
     }
-    //qDebug() << "  {{ ---- remove block hiding event :: " << type;
+    //qDebug() << " org.kde.latte {{ ---- remove block hiding event :: " << type;
 
     bool prevHidingIsBlocked = hidingIsBlocked();
 
@@ -541,7 +556,7 @@ void VisibilityManager::onHeadThicknessChanged()
 }
 
 void VisibilityManager::publishFrameExtents(bool forceUpdate)
-{
+{   
     if (m_frameExtentsHeadThicknessGap != m_latteView->headThicknessGap()
             || m_frameExtentsLocation != m_latteView->location()
             || forceUpdate) {
@@ -624,7 +639,7 @@ void VisibilityManager::updateGhostWindowState()
     if (supportsKWinEdges()) {
         bool inCurrentLayout = (m_corona->layoutsManager()->memoryUsage() == MemoryUsage::SingleLayout ||
                                 (m_corona->layoutsManager()->memoryUsage() == MemoryUsage::MultipleLayouts
-                                 && m_latteView->layout() && !m_latteView->positioner()->inLocationAnimation()
+                                 && m_latteView->layout() && !m_latteView->positioner()->inRelocationAnimation()
                                  && m_latteView->layout()->isCurrent()));
 
         if (inCurrentLayout) {
@@ -1046,7 +1061,7 @@ void VisibilityManager::createEdgeGhostWindow()
                                             this, [&]() {
             bool inCurrentLayout = (m_corona->layoutsManager()->memoryUsage() == MemoryUsage::SingleLayout ||
                                     (m_corona->layoutsManager()->memoryUsage() == MemoryUsage::MultipleLayouts
-                                     && m_latteView->layout() && !m_latteView->positioner()->inLocationAnimation()
+                                     && m_latteView->layout() && !m_latteView->positioner()->inRelocationAnimation()
                                      && m_latteView->layout()->isCurrent()));
 
             if (m_edgeGhostWindow) {

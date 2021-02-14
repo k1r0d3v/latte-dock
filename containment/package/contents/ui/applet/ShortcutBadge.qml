@@ -80,14 +80,15 @@ Loader{
     sourceComponent: Item{
         Loader{
             anchors.fill: appletNumber
-            active: root.enableShadows && graphicsSystem.isAccelerated
+            active: appletItem.myView.itemShadow.isEnabled
+                    && appletItem.environment.isGraphicsSystemAccelerated
 
             sourceComponent: DropShadow{
-                color: root.appShadowColor
+                color: appletItem.myView.itemShadow.shadowColor
                 fast: true
                 samples: 2 * radius
                 source: appletNumber
-                radius: root.appShadowSize/2
+                radius: appletItem.myView.itemShadow.size/2
                 verticalOffset: 2
             }
         }
@@ -112,7 +113,7 @@ Loader{
             showText: true
             textValue: appletNumberLoader.badgeString
 
-            style3d: root.badges3DStyle
+            style3d: appletItem.myView.badgesIn3DStyle
         }
     }
 }

@@ -55,18 +55,18 @@
       <default>0</default>
       <label>this is a percentage value</label>
     </entry>
-    <entry name="shrinkThickMargins" type="Bool">
-      <default>false</default>
-      <label>this is a percentage value</label>
-    </entry>
     <entry name="floatingInternalGapIsForced" type="Int">
       <default>1</default>
       <label>floating internal gap is forced and provided to applets and any other view specific user interaction. "1" stands for Partially Checked (Auto)</label>
-    </entry>
+    </entry>   
     <entry name="hideFloatingGapForMaximized" type="Bool">
         <default>false</default>
         <label>floating gap is disabled when there are maximized windows</label>
     </entry>
+    <entry name="floatingGapIsMirrored" type="Bool">
+      <default>false</default>
+      <label>floating gap is mirrored when it is shown in AlwaysVisible visibility mode</label>
+    </entry>    
     <entry name="proportionIconSize" type="Double">
       <default>-1</default>
       <label>this is a percentage value, -1 means disabled</label>
@@ -122,9 +122,6 @@
       <default>true</default>
     </entry>
     <entry name="smallAutomaticIconJumps" type="Bool">
-      <default>true</default>
-    </entry>
-    <entry name="addLaunchersInTaskManager" type="Bool">
       <default>true</default>
     </entry>
     <entry name="backgroundOnlyOnMaximized" type="Bool">
@@ -448,6 +445,9 @@
             <choice name="RightClick"/>
       </choices>
       <default>0</default>
+    </entry>
+    <entry name="addLaunchersInTaskManager" type="Bool">
+      <default>true</default>
     </entry>
   </group>
 </kcfg>

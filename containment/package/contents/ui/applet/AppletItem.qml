@@ -30,9 +30,10 @@ import org.kde.kquickcontrolsaddons 2.0
 import org.kde.latte.core 0.2 as LatteCore
 import org.kde.latte.components 1.0 as LatteComponents
 
+import org.kde.latte.abilities.items 0.1 as AbilityItem
+
 import "colorizer" as Colorizer
 import "communicator" as Communicator
-import "indicator" as Indicator
 import "../debugger" as Debugger
 
 Item {
@@ -49,8 +50,9 @@ Item {
     signal mouseReleased(int x, int y, int button);
 
     property bool animationsEnabled: true
+    property bool indexerIsSupported: communicator.indexerIsSupported
     property bool parabolicEffectIsSupported: true
-    property bool canShowAppletNumberBadge: !isSeparator && !isHidden && !isLattePlasmoid
+    property bool canShowAppletNumberBadge: !indexerIsSupported && !isSeparator && !isHidden
                                             && !isSpacer && !isInternalViewSplitter
 
     readonly property bool canFillThickness: applet && applet.hasOwnProperty("constraintHints") && (applet.constraintHints & PlasmaCore.Types.CanFillArea);
@@ -59,13 +61,7 @@ Item {
 
     //! Fill Applet(s)
     property bool inFillCalculations: false //temp record, is used in calculations for fillWidth,fillHeight applets
-    property bool isAutoFillApplet: {
-        if (isInternalViewSplitter) {
-            return isFillSplitter;
-        }
-
-        return isRequestingFill;
-    }
+    property bool isAutoFillApplet:  isRequestingFill
 
     property bool isRequestingFill: {
         if (!applet || !applet.Layout)
@@ -83,39 +79,25 @@ Item {
     property int maxAutoFillLength: -1 //it is used in calculations for fillWidth,fillHeight applets
     property int minAutoFillLength: -1 //it is used in calculations for fillWidth,fillHeight applets
 
-    readonly property int isFillSplitter: isInternalViewSplitter
-                                          && ((parent === layoutsContainer.startLayout
-                                               && appletItem.layouter.startLayout.fillRealApplets === 0
-                                               && (appletItem.layouter.mainLayout.shownApplets>=1 /*main layout has applet in it*/
-                                                   || (appletItem.layouter.mainLayout.shownApplets===0 /*main layout is empty*/
-                                                       && appletItem.layouter.endLayout.fillRealApplets === 0)))
-                                              || (parent === layoutsContainer.endLayout
-                                                  && appletItem.layouter.endLayout.fillRealApplets === 0
-                                                  && (appletItem.layouter.mainLayout.shownApplets>=1 /*main layout has applet in it*/
-                                                      || (appletItem.layouter.mainLayout.shownApplets===0 /*main layout is empty*/
-                                                          && appletItem.layouter.startLayout.fillRealApplets === 0))))
-
-
     readonly property bool inConfigureAppletsDragging: root.dragOverlay
                                                        && root.dragOverlay.currentApplet
                                                        && root.dragOverlay.pressed
 
     property bool userBlocksColorizing: false
-    property bool appletBlocksColorizing: !communicator.requires.latteSideColoringEnabled
+    property bool appletBlocksColorizing: !communicator.requires.latteSideColoringEnabled || communicator.indexerIsSupported
     property bool appletBlocksParabolicEffect: communicator.requires.parabolicEffectLocked
     property bool lockZoom: false
 
     property bool isActive: (isExpanded
-                             && applet.pluginName !== root.plasmoidName
+                             && !appletItem.communicator.indexerIsSupported
                              && applet.pluginName !== "org.kde.activeWindowControl"
                              && applet.pluginName !== "org.kde.plasma.appmenu")
 
     property bool isExpanded: false
 
-    property bool isHidden: (applet && applet.status === PlasmaCore.Types.HiddenStatus)
-                            || (isInternalViewSplitter && !root.inConfigureAppletsMode)
+    property bool isHidden: !root.inConfigureAppletsMode
+                            && ((applet && applet.status === PlasmaCore.Types.HiddenStatus ) || isInternalViewSplitter)
     property bool isInternalViewSplitter: (internalSplitterId > 0)
-    property bool isLattePlasmoid: latteApplet !== null
     property bool isZoomed: false
     property bool isSeparator: applet && (applet.pluginName === "audoban.applet.separator"
                                           || applet.pluginName === "org.kde.latte.separator")
@@ -128,11 +110,11 @@ Item {
     property bool lastChildOfEndLayout: index === appletItem.layouter.endLayout.lastVisibleIndex
 
     readonly property bool atScreenEdge: {
-        if (root.panelAlignment === LatteCore.Types.Center) {
+        if (appletItem.myView.alignment === LatteCore.Types.Center) {
             return false;
         }
 
-        if (root.panelAlignment === LatteCore.Types.Justify) {
+        if (appletItem.myView.alignment === LatteCore.Types.Justify) {
             //! Justify case
             if (root.maxLengthPerCentage!==100 || plasmoid.configuration.offset!==0) {
                 return false;
@@ -155,17 +137,17 @@ Item {
             return false;
         }
 
-        if (root.panelAlignment === LatteCore.Types.Left && plasmoid.configuration.offset===0) {
+        if (appletItem.myView.alignment === LatteCore.Types.Left && plasmoid.configuration.offset===0) {
             //! Left case
             return firstChildOfMainLayout;
-        } else if (root.panelAlignment === LatteCore.Types.Right && plasmoid.configuration.offset===0) {
+        } else if (appletItem.myView.alignment === LatteCore.Types.Right && plasmoid.configuration.offset===0) {
             //! Right case
             return lastChildOfMainLayout;
         }
 
-        if (root.panelAlignment === LatteCore.Types.Top && plasmoid.configuration.offset===0) {
+        if (appletItem.myView.alignment === LatteCore.Types.Top && plasmoid.configuration.offset===0) {
             return firstChildOfMainLayout && latteView && latteView.y === latteView.screenGeometry.y;
-        } else if (root.panelAlignment === LatteCore.Types.Bottom && plasmoid.configuration.offset===0) {
+        } else if (appletItem.myView.alignment === LatteCore.Types.Bottom && plasmoid.configuration.offset===0) {
             return lastChildOfMainLayout && latteView && ((latteView.y + latteView.height) === (latteView.screenGeometry.y + latteView.screenGeometry.height));
         }
 
@@ -177,6 +159,7 @@ Item {
                                           ((index === layouter.startLayout.firstVisibleIndex)
                                            || (index === layouter.mainLayout.firstVisibleIndex)
                                            || (index === layouter.endLayout.firstVisibleIndex))
+
     //applet is in ending edge
     property bool lastAppletInContainer: (index >=0) &&
                                          ((index === layouter.startLayout.lastVisibleIndex)
@@ -184,7 +167,7 @@ Item {
                                           || (index === layouter.endLayout.lastVisibleIndex))
 
     readonly property bool acceptMouseEvents: applet
-                                              && !isLattePlasmoid
+                                              && !indexerIsSupported
                                               && !originalAppletBehavior
                                               && parabolicEffectIsSupported
                                               && !appletItem.isSeparator
@@ -202,7 +185,7 @@ Item {
                                                    || (root.behaveAsDockWithMask && parabolicEffectIsSupported && lockZoom)
 
     readonly property bool isSquare: parabolicEffectIsSupported
-    readonly property bool screenEdgeMarginSupported: communicator.requires.screenEdgeMarginSupported
+    readonly property bool screenEdgeMarginSupported: communicator.requires.screenEdgeMarginSupported || communicator.indexerIsSupported
 
     property int animationTime: appletItem.animations.speedFactor.normal * (1.2*appletItem.animations.duration.small)
     property int index: -1
@@ -299,8 +282,8 @@ Item {
     readonly property string pluginName: isInternalViewSplitter ? "org.kde.latte.splitter" : (applet ? applet.pluginName : "")
 
     //! are set by the indicator
-    property int iconOffsetX: 0
-    property int iconOffsetY: 0
+    readonly property int iconOffsetX: indicatorBackLayer.level.requested.iconOffsetX
+    readonly property int iconOffsetY: indicatorBackLayer.level.requested.iconOffsetY
 
     property real computeWidth: root.isVertical ? wrapper.width :
                                                   hiddenSpacerLeft.width+wrapper.width+hiddenSpacerRight.width
@@ -309,12 +292,10 @@ Item {
                                                    wrapper.height
 
     property Item applet: null
-    property Item latteApplet: applet && (applet.pluginName === root.plasmoidName) ?
-                                   (applet.children[0] ? applet.children[0] : null) : null
     property Item latteStyleApplet: applet && ((applet.pluginName === "org.kde.latte.spacer") || (applet.pluginName === "org.kde.latte.separator")) ?
                                         (applet.children[0] ? applet.children[0] : null) : null
 
-    property Item appletWrapper: applet && (applet.pluginName === root.plasmoidName )? wrapper : wrapper.wrapperContainer
+    property Item appletWrapper: wrapper.wrapperContainer
 
     property Item tooltipVisualParent: titleTooltipParent
 
@@ -324,15 +305,20 @@ Item {
 
     property Item animations: null
     property Item debug: null
+    property Item environment: null
     property Item indexer: null
+    property Item indicators: null
+    property Item launchers: null
     property Item layouter: null
     property Item layouts: null
     property Item metrics: null
+    property Item myView: null
     property Item parabolic: null
     property Item shortcuts: null
+    property Item thinTooltip: null
     property Item userRequests: null
 
-    property bool containsMouse: (parabolicAreaLoader.active && parabolicAreaLoader.item.containsMouse) || (isLattePlasmoid && latteApplet.containsMouse)
+    property bool containsMouse: parabolicAreaLoader.active && parabolicAreaLoader.item.containsMouse
     property bool pressed: viewSignalsConnector.pressed || clickedAnimation.running
 
 
@@ -352,13 +338,15 @@ Item {
         if (movingForResize) {
             movingForResize = false;
             return;
+        } else if (inDraggingOverAppletOrOutOfContainment) {
+            return;
         }
 
         var draggingAppletInConfigure = root.dragOverlay && root.dragOverlay.currentApplet;
         var isCurrentAppletInDragging = draggingAppletInConfigure && (root.dragOverlay.currentApplet === appletItem);
-        var dropApplet = root.dragInfo.entered && foreDropArea.visible
+        var dropApplet = root.dragInfo.entered && root.dragInfo.isPlasmoid
 
-        if (isCurrentAppletInDragging || !draggingAppletInConfigure && !dropApplet) {
+        if ((isCurrentAppletInDragging || !draggingAppletInConfigure) && !dropApplet) {
             return;
         }
 
@@ -389,13 +377,15 @@ Item {
         if (movingForResize) {
             movingForResize = false;
             return;
+        } else if (inDraggingOverAppletOrOutOfContainment) {
+            return;
         }
 
         var draggingAppletInConfigure = root.dragOverlay && root.dragOverlay.currentApplet;
         var isCurrentAppletInDragging = draggingAppletInConfigure && (root.dragOverlay.currentApplet === appletItem);
-        var dropApplet = root.dragInfo.entered && foreDropArea.visible
+        var dropApplet = root.dragInfo.entered && root.dragInfo.isPlasmoid
 
-        if (isCurrentAppletInDragging || !draggingAppletInConfigure && !dropApplet) {
+        if ((isCurrentAppletInDragging || !draggingAppletInConfigure) && !dropApplet) {
             return;
         }
         if (!root.isVertical) {
@@ -491,25 +481,7 @@ Item {
                 break;
             }
         }
-
-        if(appletItem.latteApplet){
-            if(index===layoutsContainer.startLayout.beginIndex || index===layoutsContainer.mainLayout.beginIndex || index===layoutsContainer.endLayout.beginIndex)
-                latteApplet.disableLeftSpacer = false;
-            else
-                latteApplet.disableLeftSpacer = true;
-
-            if( index === layoutsContainer.startLayout.beginIndex + appletItem.layouter.startLayout.count - 1
-                    || index===layoutsContainer.mainLayout.beginIndex + appletItem.layouter.mainLayout.count - 1
-                    || index === layoutsContainer.endLayout.beginIndex + appletItem.layouter.endLayout.count - 1)
-                latteApplet.disableRightSpacer = false;
-            else
-                latteApplet.disableRightSpacer = true;
-        }
     }
-
-    //this functions gets the signal from the plasmoid, it can be used for signal items
-    //outside the LatteApplet Plasmoid
-    //property int debCounter: 0;
 
     function sltClearZoom(){
         if (communicator.parabolicEffectIsSupported) {
@@ -532,7 +504,7 @@ Item {
                 return;
             }
 
-            if (appletItem.isLattePlasmoid) {
+            if (appletItem.communicator.indexerIsSupported) {
                 appletItem.parabolicEffectIsSupported = true;
                 return;
             }
@@ -578,35 +550,13 @@ Item {
     }
 
     onIndexChanged: {
-        if (appletItem.latteApplet) {
-            root.latteAppletPos = index;
-        }
-
         if (index>-1) {
             previousIndex = index;
         }
     }
 
-    onIsExpandedChanged: {
-        if (isExpanded) {
-            root.hideTooltipLabel();
-        }
-    }
-
     onIsSystrayChanged: {
         updateParabolicEffectIsSupported();
-    }
-
-    onLatteAppletChanged: {
-        if(appletItem.latteApplet){
-            root.latteApplet = appletItem.latteApplet;
-            root.latteAppletContainer = appletItem;
-            root.latteAppletPos = index;
-            appletItem.latteApplet.latteView = root;
-            appletItem.latteApplet.forceHidePanel = true;
-
-            appletItem.latteApplet.signalPreviewsShown.connect(slotPreviewsShown);
-        }
     }
 
     onIsAutoFillAppletChanged: updateParabolicEffectIsSupported();
@@ -622,20 +572,10 @@ Item {
     Component.onDestruction: {
         appletItem.animations.needBothAxis.removeEvent(appletItem);
 
-        if(root.latteAppletPos>=0 && root.latteAppletPos === index){
-            root.latteApplet = null;
-            root.latteAppletContainer = null;
-            root.latteAppletPos = -1;
-        }
-
         root.updateIndexes.disconnect(checkIndex);
         root.destroyInternalViewSplitters.disconnect(slotDestroyInternalViewSplitters);
 
         parabolic.sglClearZoom.disconnect(sltClearZoom);
-
-        if (appletItem.latteApplet) {
-            appletItem.latteApplet.signalPreviewsShown.disconnect(slotPreviewsShown);
-        }
     }
 
     //! Bindings
@@ -680,7 +620,7 @@ Item {
     Connections {
         id: viewSignalsConnector
         target: root.latteView ? root.latteView : null
-        enabled: !appletItem.isLattePlasmoid && !appletItem.isSeparator && !appletItem.isSpacer && !appletItem.isHidden
+        enabled: !appletItem.indexerIsSupported && !appletItem.isSeparator && !appletItem.isSpacer && !appletItem.isHidden
 
         property bool pressed: false
         property bool blockWheel: false
@@ -703,8 +643,7 @@ Item {
         }
 
         onWheelScrolled: {
-            if (!appletItem.applet || !root.mouseWheelActions || viewSignalsConnector.blockWheel
-                    || (root.latteViewIsHidden || root.inSlidingIn || root.inSlidingOut)) {
+            if (!appletItem.applet || !root.mouseWheelActions || viewSignalsConnector.blockWheel || !appletItem.myView.isShownFully) {
                 return;
             }
 
@@ -725,7 +664,7 @@ Item {
 
     Connections {
         target: root.latteView ? root.latteView.extendedInterface : null
-        enabled: !appletItem.isLattePlasmoid && !appletItem.isSeparator && !appletItem.isSpacer && !appletItem.isHidden
+        enabled: !appletItem.indexerIsSupported && !appletItem.isSeparator && !appletItem.isSpacer && !appletItem.isHidden
 
         onExpandedAppletStateChanged: {
             if (latteView.extendedInterface.hasExpandedApplet && appletItem.applet) {
@@ -736,6 +675,7 @@ Item {
             }
         }
     }
+
     ///END connections
 
     //! It is used for any communication needed with the underlying applet
@@ -765,8 +705,29 @@ Item {
             width: wrapper.width
             height: wrapper.height
 
-            Indicator.Bridge{
-                id: indicatorBridge
+            AbilityItem.IndicatorObject {
+                id: appletIndicatorObj
+                animations: appletItem.animations
+                metrics: appletItem.metrics
+                host: appletItem.indicators
+
+                isApplet: true
+
+                isActive: appletItem.isActive
+                isHovered: appletItem.containsMouse
+                isSquare: appletItem.isSquare
+
+                hasActive: isActive
+
+                scaleFactor: appletItem.wrapper.zoomScale
+                panelOpacity: root.background.currentOpacity
+                shadowColor: appletItem.myView.itemShadow.shadowSolidColor
+
+                palette: colorizerManager.applyTheme
+
+                //!icon colors
+                iconBackgroundColor: appletItem.wrapper.overlayIconLoader.backgroundColor
+                iconGlowColor: appletItem.wrapper.overlayIconLoader.glowColor
             }
 
             //! InConfigureApplets visual paddings
@@ -779,25 +740,10 @@ Item {
             }
 
             //! Indicator Back Layer
-            Indicator.Loader{
+            IndicatorLevel{
                 id: indicatorBackLayer
-                level: Indicator.LevelOptions {
-                    id: backLevelOptions
-                    isBackground: true
-                    bridge: indicatorBridge
-
-                    Binding {
-                        target: appletItem
-                        property: "iconOffsetX"
-                        value: backLevelOptions.requested.iconOffsetX
-                    }
-
-                    Binding {
-                        target: appletItem
-                        property: "iconOffsetY"
-                        value: backLevelOptions.requested.iconOffsetY
-                    }
-                }
+                level.isBackground: true
+                level.indicator: appletIndicatorObj
 
                 Loader{
                     anchors.fill: parent
@@ -810,9 +756,6 @@ Item {
                     }
                 }
             }
-
-
-
 
             ItemWrapper{
                 id: _wrapper
@@ -844,12 +787,10 @@ Item {
             }
 
             //! Indicator Front Layer
-            Indicator.Loader{
+            IndicatorLevel{
                 id: indicatorFrontLayer
-                level: Indicator.LevelOptions {
-                    isForeground: true
-                    bridge: indicatorBridge
-                }
+                level.isForeground: true
+                level.indicator: appletIndicatorObj
             }
 
             //! Applet Shortcut Visual Badge
@@ -911,7 +852,7 @@ Item {
         }
 
         // a hidden spacer on the right for the last item to add stability
-        HiddenSpacer{id: hiddenSpacerRight; rightSpacer: true}
+        HiddenSpacer{id: hiddenSpacerRight; isRightSpacer: true}
     }// Flow with hidden spacers inside
 
     //Busy Indicator
@@ -928,8 +869,12 @@ Item {
         id: parabolicAreaLoader
         width: root.isHorizontal ? appletItem.width : appletItem.metrics.mask.thickness.zoomedForItems
         height: root.isHorizontal ? appletItem.metrics.mask.thickness.zoomedForItems : appletItem.height
+        //! must be enabled even for applets that are hidden in order to forward
+        //! parabolic effect messages properly to surrounding plasma applets
+        active: isParabolicEnabled || isThinTooltipEnabled
 
-        active: parabolicEffectIsSupported && appletItem.parabolic.isEnabled && !lockZoom
+        readonly property bool isParabolicEnabled: appletItem.parabolic.isEnabled && !(lockZoom || isHidden)
+        readonly property bool isThinTooltipEnabled: appletItem.thinTooltip.isEnabled &&  !isHidden
 
         sourceComponent: ParabolicArea{}
 
@@ -972,92 +917,6 @@ Item {
                     target: parabolicAreaLoader
                     anchors.horizontalCenter: parent.horizontalCenter; anchors.verticalCenter: undefined;
                     anchors.right: undefined; anchors.left: undefined; anchors.top: undefined; anchors.bottom: parent.bottom;
-                }
-            }
-        ]
-    }
-
-    Loader {
-        id: addingAreaLoader
-        width: root.isHorizontal ? parent.width : parent.width - appletItem.metrics.margin.screenEdge
-        height: root.isHorizontal ? parent.height - appletItem.metrics.margin.screenEdge : parent.height
-
-        active: isLattePlasmoid
-
-        sourceComponent: LatteComponents.AddingArea{
-            id: addingAreaItem
-            anchors.fill: parent
-            // width: root.isHorizontal ? parent.width : parent.width - appletItem.metrics.margin.screenEdge
-            // height: root.isHorizontal ? parent.height - appletItem.metrics.margin.screenEdge : parent.height
-
-            radius: appletItem.metrics.iconSize/10
-            opacity: root.addLaunchersMessage ? 1 : 0
-            backgroundOpacity: 0.75
-            duration: appletItem.animations.speedFactor.current
-
-            title: i18n("Tasks Area")
-        }
-
-        //! AddingAreaItem States
-        states:[
-            State{
-                name: "bottom"
-                when: plasmoid.location === PlasmaCore.Types.BottomEdge
-
-                AnchorChanges{
-                    target: addingAreaLoader
-                    anchors.horizontalCenter: parent.horizontalCenter; anchors.verticalCenter: undefined;
-                    anchors.right: undefined; anchors.left: undefined; anchors.top: undefined; anchors.bottom: parent.bottom;
-                }
-                PropertyChanges{
-                    target: addingAreaLoader
-                    anchors.leftMargin: 0;    anchors.rightMargin: 0;     anchors.topMargin:0;    anchors.bottomMargin: appletItem.metrics.margin.screenEdge;
-                    anchors.horizontalCenterOffset: 0; anchors.verticalCenterOffset: 0;
-                }
-            },
-            State{
-                name: "top"
-                when: plasmoid.location === PlasmaCore.Types.TopEdge
-
-                AnchorChanges{
-                    target: addingAreaLoader
-                    anchors.horizontalCenter: parent.horizontalCenter; anchors.verticalCenter: undefined;
-                    anchors.right: undefined; anchors.left: undefined; anchors.top: parent.top; anchors.bottom: undefined;
-                }
-                PropertyChanges{
-                    target: addingAreaLoader
-                    anchors.leftMargin: 0;    anchors.rightMargin: 0;     anchors.topMargin: appletItem.metrics.margin.screenEdge;    anchors.bottomMargin: 0;
-                    anchors.horizontalCenterOffset: 0; anchors.verticalCenterOffset: 0;
-                }
-            },
-            State{
-                name: "left"
-                when: plasmoid.location === PlasmaCore.Types.LeftEdge
-
-                AnchorChanges{
-                    target: addingAreaLoader
-                    anchors.horizontalCenter: undefined; anchors.verticalCenter: parent.verticalCenter;
-                    anchors.right: undefined; anchors.left: parent.left; anchors.top: undefined; anchors.bottom: undefined;
-                }
-                PropertyChanges{
-                    target: addingAreaLoader
-                    anchors.leftMargin: appletItem.metrics.margin.screenEdge;    anchors.rightMargin: 0;     anchors.topMargin:0;    anchors.bottomMargin: 0;
-                    anchors.horizontalCenterOffset: 0; anchors.verticalCenterOffset: 0;
-                }
-            },
-            State{
-                name: "right"
-                when: plasmoid.location === PlasmaCore.Types.RightEdge
-
-                AnchorChanges{
-                    target: addingAreaLoader
-                    anchors.horizontalCenter: undefined; anchors.verticalCenter: parent.verticalCenter;
-                    anchors.right: parent.right; anchors.left: undefined; anchors.top: undefined; anchors.bottom: undefined;
-                }
-                PropertyChanges{
-                    target: addingAreaLoader
-                    anchors.leftMargin: 0;    anchors.rightMargin: appletItem.metrics.margin.screenEdge;     anchors.topMargin:0;    anchors.bottomMargin: 0;
-                    anchors.horizontalCenterOffset: 0; anchors.verticalCenterOffset: 0;
                 }
             }
         ]

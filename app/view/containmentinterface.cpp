@@ -35,6 +35,7 @@
 #include <PlasmaQuick/AppletQuickItem>
 
 // KDE
+#include <KDesktopFile>
 #include <KLocalizedString>
 #include <KPluginMetaData>
 
@@ -161,6 +162,22 @@ bool ContainmentInterface::isCapableToShowShortcutBadges()
     }
 
     return m_showShortcutsMethod.isValid();
+}
+
+bool ContainmentInterface::isApplication(const QUrl &url) const
+{
+    if (!url.isValid() || !url.isLocalFile()) {
+        return false;
+    }
+
+    const QString &localPath = url.toLocalFile();
+
+    if (!KDesktopFile::isDesktopFile(localPath)) {
+        return false;
+    }
+
+    KDesktopFile desktopFile(localPath);
+    return desktopFile.hasApplicationType();
 }
 
 int ContainmentInterface::applicationLauncherId() const
@@ -508,7 +525,18 @@ void ContainmentInterface::onAppletExpandedChanged()
     PlasmaQuick::AppletQuickItem *appletItem = static_cast<PlasmaQuick::AppletQuickItem *>(QObject::sender());
 
     if (appletItem) {
+        bool added{false};
+
         if (appletItem->isExpanded()) {
+            if (appletItem->switchWidth()>0 && appletItem->switchHeight()>0) {
+                added = ((appletItem->width()<=appletItem->switchWidth())
+                         && (appletItem->height()<=appletItem->switchHeight()));
+            } else {
+                added = true;
+            }
+        }
+
+        if (added) {
             addExpandedApplet(appletItem);
         } else {
             removeExpandedApplet(appletItem);

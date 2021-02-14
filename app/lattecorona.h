@@ -75,7 +75,6 @@ namespace Layout{
 class GenericLayout;
 }
 namespace Layouts{
-class LaunchersSignals;
 class Manager;
 }
 namespace PlasmaExtended{
@@ -164,7 +163,6 @@ public:
 
 public slots:
     void aboutApplication();
-    void addViewForLayout(QString layoutName);
     void activateLauncherMenu();
     void loadDefaultLayout() override;
     void setBackgroundFromBroadcast(QString activity, QString screenName, QString filename);
@@ -254,7 +252,6 @@ private:
     KWayland::Client::PlasmaShell *m_waylandCorona{nullptr};
 
     friend class GlobalShortcuts;
-    friend class Layouts::LaunchersSignals;
     friend class Layouts::Manager;
     friend class Layouts::Storage;
 };

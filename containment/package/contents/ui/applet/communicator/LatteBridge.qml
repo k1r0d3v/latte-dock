@@ -19,6 +19,7 @@
 
 import QtQuick 2.7
 
+import org.kde.latte.abilities.host 0.1 as AbilityHost
 import org.kde.latte.abilities.bridge 0.1 as AbilityBridge
 
 Item{
@@ -46,7 +47,7 @@ Item{
     //   EXPLANATION: Latte sets it to true when this applet is in a Latte containment and Latte
     //       is also in EditMode, that means when the user is altering applets and Latte latteView settings
     // @since: 0.9
-    readonly property bool inEditMode: root.inConfigureAppletsMode
+    readonly property bool inEditMode: appletItem.isLattePlasmoid ? root.editMode : root.inConfigureAppletsMode
 
     // NAME: inPlasmaPanelStyle
     //   USAGE: read-only
@@ -141,7 +142,10 @@ Item{
 
     readonly property Item actions: Actions{}
     readonly property Item applet: mainCommunicator.requires
+    readonly property alias containment: _containment.publicApi
+    readonly property Item environment: appletItem.environment.publicApi
     readonly property Item debug: appletItem.debug.publicApi
+    readonly property Item indicators: appletItem.indicators.publicApi
     readonly property Item metrics: appletItem.metrics.publicApi
     readonly property Item userRequests: appletItem.userRequests
 
@@ -157,8 +161,23 @@ Item{
         tailAppletIsSeparator: appletItem.tailAppletIsSeparator
     }
 
+    readonly property AbilityBridge.Launchers launchers: AbilityBridge.Launchers {
+        host: appletItem.launchers
+        appletIndex: index
+    }
+
+    readonly property AbilityBridge.MyView myView: AbilityBridge.MyView {
+        host: appletItem.myView.publicApi
+        appletIndex: index
+    }
+
     readonly property AbilityBridge.ParabolicEffect parabolic: AbilityBridge.ParabolicEffect {
         host: appletItem.parabolic
+        appletIndex: index
+    }
+
+    readonly property AbilityBridge.ThinTooltip thinTooltip: AbilityBridge.ThinTooltip {
+        host: appletItem.thinTooltip.publicApi
         appletIndex: index
     }
 
@@ -174,6 +193,15 @@ Item{
                 settings.broadcasted(action, value);
             }
         }
+    }
+
+    AbilityHost.Containment {
+        id: _containment
+        appletIndex: index
+        myView: appletItem.myView
+
+        isFirstAppletInContainment: appletItem.firstAppletInContainer
+        isLastAppletInContainment: appletItem.lastAppletInContainer
     }
 
     //! Initialize

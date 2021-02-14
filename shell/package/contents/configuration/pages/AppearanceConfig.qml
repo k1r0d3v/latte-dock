@@ -33,8 +33,9 @@ import org.kde.latte.components 1.0 as LatteComponents
 import org.kde.latte.private.containment 0.1 as LatteContainment
 
 PlasmaComponents.Page {
-    Layout.maximumWidth: content.width + content.Layout.leftMargin * 2
-    Layout.maximumHeight: content.height + units.smallSpacing * 2
+    id: page
+    width: content.width + content.Layout.leftMargin * 2
+    height: content.height + units.smallSpacing * 2
 
     Timer {
         id: syncGeometry
@@ -69,11 +70,6 @@ PlasmaComponents.Page {
                 Layout.rightMargin: units.smallSpacing * 2
                 spacing: 0
 
-                LatteComponents.SubHeader {
-                    text: i18nc("items effects", "Size")
-                    isFirstSubCategory: true
-                }
-
                 RowLayout {
                     Layout.minimumWidth: dialog.optionsWidth
                     Layout.maximumWidth: Layout.minimumWidth
@@ -81,23 +77,24 @@ PlasmaComponents.Page {
                     enabled: proportionSizeSlider.value === 1
 
                     PlasmaComponents.Label {
-                        text: i18nc("absolute size","Absolute")
+                        text: i18nc("absolute size","Absolute size")
                         horizontalAlignment: Text.AlignLeft
                     }
 
                     LatteComponents.Slider {
                         id: appletsSizeSlider
                         Layout.fillWidth: true
-                        value: plasmoid.configuration.iconSize
+                        //!round to nearest odd number
+                        value: 2 * Math.round(plasmoid.configuration.iconSize / 2)
                         from: 16
                         to: 512
-                        stepSize: dialog.advancedLevel || (plasmoid.configuration.iconSize % 8 !== 0) || dialog.viewIsPanel ? 1 : 8
+                        stepSize: dialog.advancedLevel || (plasmoid.configuration.iconSize % 8 !== 0) || dialog.viewIsPanel ? 2 : 8
                         wheelEnabled: false
 
                         function updateIconSize() {
                             if (!pressed) {
-                                plasmoid.configuration.iconSize = value
-                                syncGeometry.restart()
+                                plasmoid.configuration.iconSize = value;
+                                syncGeometry.restart();
                             }
                         }
 
@@ -129,7 +126,7 @@ PlasmaComponents.Page {
                     visible: dialog.advancedLevel || plasmoid.configuration.proportionIconSize>0
 
                     PlasmaComponents.Label {
-                        text: i18nc("relative size", "Relative")
+                        text: i18nc("relative size", "Relative size")
                         horizontalAlignment: Text.AlignLeft
                         enabled: proportionSizeSlider.value !== proportionSizeSlider.from
                     }
@@ -176,11 +173,6 @@ PlasmaComponents.Page {
                     }
                 }
 
-                LatteComponents.SubHeader {
-                    text: i18nc("items effects", "Effects")
-                    //isFirstSubCategory: true
-                }
-
                 RowLayout {
                     Layout.minimumWidth: dialog.optionsWidth
                     Layout.maximumWidth: Layout.minimumWidth
@@ -188,7 +180,7 @@ PlasmaComponents.Page {
                     enabled: LatteCore.WindowSystem.compositingActive && plasmoid.configuration.animationsEnabled
 
                     PlasmaComponents.Label {
-                        text: i18n("Zoom On Hover")
+                        text: i18n("Zoom on hover")
                         horizontalAlignment: Text.AlignLeft
                     }
 
@@ -259,7 +251,6 @@ PlasmaComponents.Page {
 
                     PlasmaComponents.Label {
                         id: maxLengthLbl
-                        Layout.minimumWidth: lengthColumn.labelsMaxWidth
                         text: i18n("Maximum")
                         horizontalAlignment: Text.AlignLeft
                     }
@@ -371,7 +362,6 @@ PlasmaComponents.Page {
 
                     PlasmaComponents.Label {
                         id: minLengthLbl
-                        Layout.minimumWidth: lengthColumn.labelsMaxWidth
                         text: i18n("Minimum")
                         horizontalAlignment: Text.AlignLeft
                     }
@@ -455,7 +445,6 @@ PlasmaComponents.Page {
 
                     PlasmaComponents.Label {
                         id: offsetLbl
-                        Layout.minimumWidth: lengthColumn.labelsMaxWidth
                         text: i18n("Offset")
                         horizontalAlignment: Text.AlignLeft
                     }
@@ -635,32 +624,13 @@ PlasmaComponents.Page {
                     }
                 }
 
-                LatteComponents.HeaderSwitch {
-                    id: shrinkThickMargins
-                    Layout.minimumWidth: dialog.optionsWidth
-                    Layout.maximumWidth: Layout.minimumWidth
-                    Layout.minimumHeight: implicitHeight
-                    Layout.bottomMargin: units.smallSpacing
-
-                    checked: !plasmoid.configuration.shrinkThickMargins
-                    level: 2
-                    text: i18n("Thickness")
-                    tooltip: i18n("Enable/disable thickness margins")
-                    isFirstSubCategory: true
-
-                    onPressed: {
-                        plasmoid.configuration.shrinkThickMargins = !plasmoid.configuration.shrinkThickMargins;
-                    }
-                }
-
                 RowLayout {
                     Layout.minimumWidth: dialog.optionsWidth
                     Layout.maximumWidth: Layout.minimumWidth
                     spacing: units.smallSpacing
-                    enabled: !plasmoid.configuration.shrinkThickMargins
 
                     PlasmaComponents.Label {
-                        text: plasmoid.formFactor === PlasmaCore.Types.Horizontal ? i18n("Height") : i18n("Width")
+                        text: i18n("Thickness")
                         horizontalAlignment: Text.AlignLeft
                     }
 
@@ -696,10 +666,9 @@ PlasmaComponents.Page {
                     Layout.minimumWidth: dialog.optionsWidth
                     Layout.maximumWidth: Layout.minimumWidth
                     spacing: units.smallSpacing
-                    enabled: !plasmoid.configuration.shrinkThickMargins
 
                     PlasmaComponents.Label {
-                        text: i18n("Screen")
+                        text: i18n("Screen edge")
                         horizontalAlignment: Text.AlignLeft
                     }
 
@@ -832,7 +801,7 @@ PlasmaComponents.Page {
                 tooltip: i18n("Enable/disable background")
 
                 onPressed: {
-                    plasmoid.configuration.useThemePanel = !plasmoid.configuration.useThemePanel;
+                    plasmoid.configuration.useThemePanel = checked;
                 }
             }
 
@@ -912,11 +881,6 @@ PlasmaComponents.Page {
                         to: 100
                         stepSize: 1
                         wheelEnabled: false
-
-                        /*property bool blockOpacityAdjustment: (plasmoid.configuration.solidBackgroundForMaximized && plasmoid.configuration.backgroundOnlyOnMaximized)
-                                                          || (solidBackground.checked
-                                                              && !plasmoid.configuration.solidBackgroundForMaximized
-                                                              && !plasmoid.configuration.backgroundOnlyOnMaximized)*/
 
                         function updatePanelTransparency() {
                             if (!pressed)
@@ -1030,28 +994,27 @@ PlasmaComponents.Page {
                     }
                 }
 
-                LatteComponents.SubHeader {
-                    visible: dialog.advancedLevel
-                    isFirstSubCategory: true
-                    text: i18n("Options")
-                }
-
                 RowLayout {
-                    Layout.fillWidth: true
+                    Layout.minimumWidth: dialog.optionsWidth
+                    Layout.maximumWidth: Layout.minimumWidth
+                    Layout.topMargin: units.smallSpacing
                     spacing: 2
                     visible: dialog.advancedLevel
 
-                    readonly property int buttonSize: (dialog.optionsWidth - (spacing * (children.length-1))) / children.length
+                    readonly property int buttonSize: (dialog.optionsWidth - (2 * spacing)) / children.length
 
                     PlasmaComponents.Button {
                         id: panelBlur
                         Layout.minimumWidth: parent.buttonSize
                         Layout.maximumWidth: Layout.minimumWidth
                         text: i18n("Blur")
-                        checked: plasmoid.configuration.blurEnabled
                         checkable: true
                         enabled: showBackground.checked && LatteCore.WindowSystem.compositingActive
                         tooltip: i18n("Background is blurred underneath")
+
+                        readonly property int blurEnabled: plasmoid.configuration.blurEnabled
+
+                        onBlurEnabledChanged: checked = blurEnabled;
 
                         onClicked: {
                             plasmoid.configuration.blurEnabled  = checked
@@ -1063,10 +1026,13 @@ PlasmaComponents.Page {
                         Layout.minimumWidth: parent.buttonSize
                         Layout.maximumWidth: Layout.minimumWidth
                         text: i18n("Shadows")
-                        checked: plasmoid.configuration.panelShadows
                         checkable: true
                         enabled: showBackground.checked && LatteCore.WindowSystem.compositingActive && themeExtended.hasShadow
                         tooltip: i18n("Background shows its shadows")
+
+                        readonly property int panelShadows: plasmoid.configuration.panelShadows
+
+                        onPanelShadowsChanged: checked = panelShadows
 
                         onClicked: {
                             plasmoid.configuration.panelShadows  = checked
@@ -1074,17 +1040,17 @@ PlasmaComponents.Page {
                     }
 
                     PlasmaComponents.Button {
-                        id: solidBackground
+                        id: solidBackground                     
                         Layout.minimumWidth: parent.buttonSize
                         Layout.maximumWidth: Layout.minimumWidth
                         text: i18n("Outline")
-                        checked: plasmoid.configuration.panelOutline
                         checkable: true
+                        checked: plasmoid.configuration.panelOutline
                         enabled: showBackground.checked
                         tooltip: i18n("Background draws a line for its borders. You can set the line size from Latte Preferences")
 
                         onClicked: {
-                            plasmoid.configuration.panelOutline = !plasmoid.configuration.panelOutline;
+                            plasmoid.configuration.panelOutline = checked;
                         }
                     }
 
@@ -1093,8 +1059,8 @@ PlasmaComponents.Page {
                         Layout.minimumWidth: parent.buttonSize
                         Layout.maximumWidth: Layout.minimumWidth
                         text: i18n("All Corners")
-                        checked: plasmoid.configuration.backgroundAllCorners
                         checkable: true
+                        checked: plasmoid.configuration.backgroundAllCorners
                         enabled: showBackground.checked
                                  && ((plasmoid.configuration.screenEdgeMargin===-1) /*no-floating*/
                                      || (plasmoid.configuration.screenEdgeMargin > -1 /*floating with justify alignment and 100% maxlength*/
@@ -1103,7 +1069,7 @@ PlasmaComponents.Page {
                         tooltip: i18n("Background draws all corners at all cases.")
 
                         onClicked: {
-                            plasmoid.configuration.backgroundAllCorners = !plasmoid.configuration.backgroundAllCorners;
+                            plasmoid.configuration.backgroundAllCorners = checked;
                         }
                     }
                 }
@@ -1120,13 +1086,13 @@ PlasmaComponents.Page {
                         id: solidForMaximizedChk
                         Layout.maximumWidth: dialog.optionsWidth
                         text: i18n("Prefer opaque background when touching any window")
-                        checked: plasmoid.configuration.solidBackgroundForMaximized
                         tooltip: i18n("Background removes its transparency setting when a window is touching")
                         enabled: showBackground.checked
                         visible: dialog.advancedLevel
+                        value: plasmoid.configuration.solidBackgroundForMaximized
 
                         onClicked: {
-                            plasmoid.configuration.solidBackgroundForMaximized = checked;
+                            plasmoid.configuration.solidBackgroundForMaximized = !plasmoid.configuration.solidBackgroundForMaximized;
                         }
                     }
 
@@ -1134,13 +1100,13 @@ PlasmaComponents.Page {
                         id: onlyOnMaximizedChk
                         Layout.maximumWidth: dialog.optionsWidth
                         text: i18n("Hide background when not needed")
-                        checked: plasmoid.configuration.backgroundOnlyOnMaximized
                         tooltip: i18n("Background becomes hidden except when a window is touching or the desktop background is busy")
                         enabled: showBackground.checked
                         visible: dialog.advancedLevel
+                        value: plasmoid.configuration.backgroundOnlyOnMaximized
 
                         onClicked: {
-                            plasmoid.configuration.backgroundOnlyOnMaximized = checked;
+                            plasmoid.configuration.backgroundOnlyOnMaximized = !plasmoid.configuration.backgroundOnlyOnMaximized;
                         }
                     }
 
@@ -1148,13 +1114,13 @@ PlasmaComponents.Page {
                         id: hideShadowsOnMaximizedChk
                         Layout.maximumWidth: dialog.optionsWidth
                         text: i18n("Hide background shadow for maximized windows")
-                        checked: plasmoid.configuration.disablePanelShadowForMaximized
                         tooltip: i18n("Background shadows become hidden when an active maximized window is touching the view")
                         enabled: showBackground.checked
                         visible: dialog.advancedLevel
+                        value: plasmoid.configuration.disablePanelShadowForMaximized
 
                         onClicked: {
-                            plasmoid.configuration.disablePanelShadowForMaximized = checked;
+                            plasmoid.configuration.disablePanelShadowForMaximized = !plasmoid.configuration.disablePanelShadowForMaximized;
                         }
                     }
                 }
@@ -1169,13 +1135,13 @@ PlasmaComponents.Page {
                     id: solidForPopupsChk
                     Layout.maximumWidth: dialog.optionsWidth
                     text: i18n("Prefer Plasma background and colors for expanded applets")
-                    checked: plasmoid.configuration.plasmaBackgroundForPopups
                     tooltip: i18n("Background becomes opaque in plasma style when applets are expanded")
                     enabled: showBackground.checked
                     visible: dialog.advancedLevel
+                    value: plasmoid.configuration.plasmaBackgroundForPopups
 
                     onClicked: {
-                        plasmoid.configuration.plasmaBackgroundForPopups = checked;
+                        plasmoid.configuration.plasmaBackgroundForPopups = !plasmoid.configuration.plasmaBackgroundForPopups;
                     }
                 }
             }

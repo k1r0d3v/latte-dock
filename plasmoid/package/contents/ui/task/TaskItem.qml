@@ -29,88 +29,56 @@ import org.kde.plasma.plasmoid 2.0
 import org.kde.plasma.private.taskmanager 0.1 as TaskManagerApplet
 
 import org.kde.latte.core 0.2 as LatteCore
-
 import org.kde.latte.private.tasks 0.1 as LatteTasks
 
+import org.kde.latte.abilities.items 0.1 as AbilityItem
+
 import "animations" as TaskAnimations
-import "indicator" as Indicator
 
-MouseArea{
+AbilityItem.BasicItem {
     id: taskItem
-
-    visible: false //true//(isStartup && animations.speedFactor.current !== 0) ? false : true
-
-    anchors.bottom: (parent && root.location === PlasmaCore.Types.BottomEdge) ? parent.bottom : undefined
-    anchors.top: (parent && root.location === PlasmaCore.Types.TopEdge) ? parent.top : undefined
-    anchors.left: (parent && root.location === PlasmaCore.Types.LeftEdge) ? parent.left : undefined
-    anchors.right: (parent && root.location === PlasmaCore.Types.RightEdge) ? parent.right : undefined
-
+    visible: false
     objectName: "TaskItem"
 
-    width: {
-        if (!visible)
-            return 0;
+    isHidden: !visible || isForcedHidden
 
-        if (isSeparator) {
-            if (root.vertical) {
-                return taskItem.metrics.totals.thickness + taskItem.metrics.margin.screenEdge;
-            } else {
-                if (root.dragSource || !taskItem.parabolic.isEnabled) {
-                    return LatteCore.Environment.separatorLength+2*taskItem.metrics.margin.length;
-                }
-            }
+    isHiddenSpacerForcedShow: taskItem.inAttentionAnimation || taskItem.inFastRestoreAnimation
+    isHiddenSpacerAnimated: taskItem.inFastRestoreAnimation
+                            || showWindowAnimation.running
+                            || root.inActivityChange
+                            || taskItem.inRemoveStage
+                            || (taskItem.containsMouse && inAttentionAnimation && taskItem.parabolicItem.zoom!==taskItem.abilities.parabolic.factor.zoom)
 
-            return 0;
+    isMonochromaticForcedContentItem: plasmoid.configuration.forceMonochromaticIcons
+
+    isSeparatorInRealLength: isSeparator && root.dragSource
+
+    containsMouse: taskMouseArea.containsMouse || parabolicAreaContainsMouse
+    thinTooltipText: {
+        if (root.showPreviews && !isLauncher) {
+            return "";
         }
 
-        if (root.vertical) {
-            return wrapper.width;
-        } else {
-            return hiddenSpacerLeft.width+wrapper.width+hiddenSpacerRight.width;
-        }
+        return isWindow ? model.display : model.AppName;
     }
 
-    /*onWidthChanged: {
-        console.log("T: " + itemIndex + " - " + launcherUrl + " - " + width + " _ "+ hiddenSpacerLeft.width + " _ " + wrapper.width + " _ " + hiddenSpacerRight.width);
-    }*/
+    parabolicItem.isParabolicEventBlocked: root.dragSource
+                                           || !hoverEnabled
+                                           || !taskItem.abilities.myView.isShownFully
+                                           || inAnimation
+                                           || (inBlockingAnimation && !(inAttentionAnimation||inFastRestoreAnimation))
+    parabolicItem.isUpdatingOnlySpacers: inAttentionAnimation || inBouncingAnimation
 
-    height: {
-        if (!visible)
-            return 0;
+    property alias hoverEnabled: taskMouseArea.hoverEnabled
+    property alias pressed: taskMouseArea.pressed
 
-        if (isSeparator) {
-            if (!root.vertical) {
-                return taskItem.metrics.totals.thickness + taskItem.metrics.margin.screenEdge;
-            } else {
-                if (root.dragSource || !taskItem.parabolic.isEnabled) {
-                    return LatteCore.Environment.separatorLength+2*taskItem.metrics.margin.length;
-                }
-            }
-
-            return 0;
-        }
-
-        if (root.vertical) {
-            return hiddenSpacerLeft.height + wrapper.height + hiddenSpacerRight.height;
-        } else {
-            return wrapper.height;
-        }
-    }
-
-    acceptedButtons: Qt.LeftButton | Qt.MidButton | Qt.RightButton
-    hoverEnabled: visible && (!inAnimation) && (!IsStartup) && (!root.taskInAnimation)
-                  &&(!inBouncingAnimation) && !isSeparator
-    // hoverEnabled: false
-    //opacity : isSeparator && (hiddenSpacerLeft.neighbourSeparator || hiddenSpacerRight.neighbourSeparator) ? 0 : 1
-
-    property bool buffersAreReady: false
     property bool delayingRemove: ListView.delayRemove
-    property bool scalesUpdatedOnce: false
     //states that exist in windows in a Group of windows
     property bool hasActive: isActive
     property bool hasMinimized: (IsGroupParent === true) ? subWindows.hasMinimized : isMinimized
     property bool hasShown: (IsGroupParent === true) ? subWindows.hasShown : !isMinimized && isWindow
-    property bool inAttention: isDemandingAttention && plasmoid.status === PlasmaCore.Types.RequiresAttentionStatus ? true : false
+    property bool inAttention: isDemandingAttention && plasmoid.status === PlasmaCore.Types.NeedsAttentionStatus ? true : false
+
     /*animations flags*/
     property bool inAnimation: true
     property bool inAddRemoveAnimation: true
@@ -118,9 +86,7 @@ MouseArea{
     property bool inBlockingAnimation: false
     property bool inBouncingAnimation: false
     property bool inFastRestoreAnimation: false
-    property bool inMimicParabolicAnimation: false
     property bool inNewWindowAnimation: false
-    property real mimicParabolicScale: -1
     property bool inPopup: false
     property bool inRemoveStage: false
 
@@ -133,39 +99,31 @@ MouseArea{
     property bool isDragged: false
     property bool isGroupable: (IsGroupable === true) ? true : false
     property bool isGroupParent: (IsGroupParent === true) ? true : false
-    readonly property bool isHidden: !visible || isForcedHidden
     property bool isForcedHidden: false
     property bool isLauncher: (IsLauncher === true) ? true : false
+    property bool hasShownLauncher:  (taskItem.abilities.launchers.inCurrentActivity(taskItem.launcherUrl)
+                                      || taskItem.abilities.launchers.inCurrentActivity(taskItem.launcherUrlWithIcon))
+                                     && !root.inActivityChange /*update trigger when changing current activity*/
     property bool isMinimized: (IsMinimized === true) ? true : false
-    property bool isSeparator: false
     property bool isStartup: (IsStartup === true) ? true : false
     property bool isWindow: (IsWindow === true) ? true : false
-    property bool isZoomed: false
 
-    property bool canPublishGeometries: (isWindow || isStartup || isGroupParent) && visible && width>=taskItem.metrics.iconSize && height>=taskItem.metrics.iconSize
+    property bool canPublishGeometries: (isWindow || isStartup || isGroupParent) && visible && width>=taskItem.abilities.metrics.iconSize && height>=taskItem.abilities.metrics.iconSize
                                         && !taskItem.delayingRemove
-                                        && (wrapper.mScale===1 || wrapper.mScale===taskItem.parabolic.factor.zoom) //don't publish during zoom animation
+                                        && (taskItem.parabolicItem.zoom===1 || taskItem.parabolicItem.zoom===taskItem.abilities.parabolic.factor.zoom) //don't publish during zoom animation
 
     property bool hoveredFromDragging: (mouseHandler.hoveredItem === taskItem) || (mouseHandler.ignoredItem === taskItem)
 
-    property bool pressed: false
     property bool wheelIsBlocked: false
 
-    property int animationTime: (taskItem.animations.active ? taskItem.animations.speedFactor.current : 2) * (1.2 *taskItem.animations.duration.small)
     property int badgeIndicator: 0 //it is used from external apps
-    property int itemIndex: index
     property int lastValidIndex: -1 //used for the removal animation
     property int lastButtonClicked: -1;
     property int pressX: -1
     property int pressY: -1
     property int resistanceDelay: 450
-    property int spacersMaxSize: Math.max(0,Math.ceil(0.55*taskItem.metrics.iconSize) - taskItem.metrics.totals.lengthEdges)
     property int windowsCount: subWindows.windowsCount
     property int windowsMinimizedCount: subWindows.windowsMinimized
-
-    //! are set by the indicator
-    property int iconOffsetX: 0
-    property int iconOffsetY: 0
 
     property string activity: tasksModel.activity
 
@@ -179,24 +137,51 @@ MouseArea{
     property string launcherUrlWithIcon: ""
     property string launcherName: ""
 
-    readonly property alias hoveredTimer: _hoveredTimer
-    readonly property alias tooltipVisualParent: _wrapper.titleTooltipVisualParent
-    readonly property alias previewsVisualParent: _wrapper.previewsTooltipVisualParent
-    readonly property alias wrapper: _wrapper
-
+    readonly property alias hoveredTimer: taskMouseArea.hoveredTimer
+    readonly property alias mouseArea: taskMouseArea
+    readonly property alias subWindows: subWindows
 
     readonly property alias showWindowAnimation: _showWindowAnimation
-    readonly property alias restoreAnimation: _restoreAnimation
 
-    //abilities
-    property Item animations: null
-    property Item debug: null
-    property Item indexer: null
-    property Item launchers: null
-    property Item metrics: null
-    property Item parabolic: null
-    property Item requires: null
-    property Item shortcuts: null
+    //! Indicator Properties
+    indicator.isTask: true
+    indicator.isLauncher: taskItem.isLauncher || root.disableAllWindowsFunctionality
+    indicator.isStartup: !root.disableAllWindowsFunctionality && taskItem.isStartup
+    indicator.isWindow: !root.disableAllWindowsFunctionality && taskItem.isWindow
+
+    indicator.isActive: !root.disableAllWindowsFunctionality && (taskItem.hasActive
+                                                                 || (root.showPreviews
+                                                                     && (taskItem.isWindow || taskItem.isGroupParent)
+                                                                     && windowsPreviewDlg.activeItem
+                                                                     && (windowsPreviewDlg.activeItem === taskItem)) )
+
+    indicator.isGroup: !root.disableAllWindowsFunctionality && taskItem.isGroupParent
+    indicator.isHovered: taskItem.containsMouse
+    indicator.isMinimized: !root.disableAllWindowsFunctionality && taskItem.isMinimized
+    indicator.isPressed: taskItem.pressed
+    indicator.inAttention: !root.disableAllWindowsFunctionality && taskItem.inAttention
+    indicator.inRemoving: taskItem.inRemoveStage
+
+    indicator.isSquare: true
+
+    indicator.hasActive: !root.disableAllWindowsFunctionality && taskItem.hasActive
+    indicator.hasMinimized: !root.disableAllWindowsFunctionality && taskItem.hasMinimized
+    indicator.hasShown: !root.disableAllWindowsFunctionality && taskItem.hasShown
+    indicator.windowsCount: !root.disableAllWindowsFunctionality ? taskItem.windowsCount : 0
+    indicator.windowsMinimizedCount: !root.disableAllWindowsFunctionality ? taskItem.windowsMinimizedCount : 0
+
+    indicator.scaleFactor: taskItem.parabolicItem.zoom
+    indicator.panelOpacity: taskItem.abilities.myView.backgroundOpacity
+    indicator.shadowColor: taskItem.abilities.myView.itemShadow.shadowSolidColor
+
+    indicator.progressVisible: taskIcon.progressVisible /*since 0.9.2*/
+    indicator.progress: taskIcon.progress /*since 0.9.2*/
+
+    indicator.palette: taskItem.abilities.myView.palette
+
+    indicator.iconBackgroundColor: taskIcon.backgroundColor
+    indicator.iconGlowColor: taskIcon.glowColor
+    //! Indicator Properties
 
     onModelLauncherUrlChanged: {
         if (modelLauncherUrl !== ""){
@@ -215,7 +200,7 @@ MouseArea{
             }
         }
 
-        if (launchers.isSeparator(modelLauncherUrl)){
+        if (taskItem.abilities.launchers.isSeparator(modelLauncherUrl)){
             isSeparator = true;
         } else {
             isSeparator = false;
@@ -232,47 +217,6 @@ MouseArea{
         if (hoveredFromDragging) {
             scrollableList.autoScrollFor(taskItem, true);
         }
-    }
-
-    //! separators flags
-    readonly property bool tailItemIsSeparator: {
-        if (isSeparator || itemIndex < 0 ) {
-            return false;
-        }
-
-        var tail = index - 1;
-
-        while(tail>=0 && taskItem.indexer.hidden.indexOf(tail)>=0) {
-            tail = tail - 1;
-        }
-
-        var hasTailItemSeparator = taskItem.indexer.separators.indexOf(tail)>=0;
-
-        if (!hasTailItemSeparator && itemIndex === taskItem.indexer.firstVisibleItemIndex){
-            return taskItem.indexer.tailAppletIsSeparator;
-        }
-
-        return hasTailItemSeparator;
-    }
-
-    readonly property bool headItemIsSeparator: {
-        if (isSeparator || itemIndex < 0 ) {
-            return false;
-        }
-
-        var head = index + 1;
-
-        while(head>=0 && taskItem.indexer.hidden.indexOf(head)>=0) {
-            head = head + 1;
-        }
-
-        var hasHeadItemSeparator = taskItem.indexer.separators.indexOf(head)>=0;
-
-        if (!hasHeadItemSeparator && itemIndex === taskItem.indexer.lastVisibleItemIndex){
-            return taskItem.indexer.headAppletIsSeparator;
-        }
-
-        return hasHeadItemSeparator;
     }
 
     ////// Audio streams //////
@@ -301,31 +245,18 @@ MouseArea{
         return maxVolume;
     }
 
+    //! Content Item
+    contentItem: TaskIcon{
+        id:taskIcon
+    }
     //////
 
     property QtObject contextMenu: null
 
+    signal checkWindowsStates();
     signal groupWindowAdded();
     signal groupWindowRemoved();
-    signal checkWindowsStates();
-
-    Behavior on opacity {
-        // NumberAnimation { duration: (IsStartup || (IsLauncher) ) ? 0 : 400 }
-        NumberAnimation { duration: taskItem.animations.speedFactor.current * taskItem.animations.duration.large }
-    }
-
-    Loader{
-        anchors.fill: parent
-        active: taskItem.debug.graphicsEnabled
-
-        sourceComponent: Rectangle{
-            anchors.fill: parent
-            color: "transparent"
-            border.color:  "blue"
-            border.width: 1
-        }
-    }
-
+    signal launcherAnimationRequested();
 
     SubWindows{
         id: subWindows
@@ -364,245 +295,8 @@ MouseArea{
         }
     }
 
-    Loader {
-        id: isSeparatorRectangle
-        active: (opacityN>0)
-
-        width: taskItem.width
-        height: taskItem.height
-        anchors.centerIn: separatorItem
-
-        property real opacityN: isSeparator && root.contextMenu && root.contextMenu.visualParent === taskItem ? 1 : 0
-
-        Behavior on opacityN {
-            NumberAnimation { duration: taskItem.animations.speedFactor.current * taskItem.animations.duration.large }
-        }
-
-        sourceComponent: Rectangle{
-            anchors.fill: parent
-            opacity: isSeparatorRectangle.opacityN
-            radius: 3
-
-            property color tempColor: theme.highlightColor
-            color: tempColor
-            border.width: 1
-            border.color: theme.highlightColor
-
-            onTempColorChanged: tempColor.a = 0.35;
-
-        }
-    }
-
-    Item{
-        id:separatorItem
-
-        anchors.bottom: (root.location === PlasmaCore.Types.BottomEdge) ? parent.bottom : undefined
-        anchors.top: (root.location === PlasmaCore.Types.TopEdge) ? parent.top : undefined
-        anchors.left: (root.location === PlasmaCore.Types.LeftEdge) ? parent.left : undefined
-        anchors.right: (root.location === PlasmaCore.Types.RightEdge) ? parent.right : undefined
-
-        anchors.horizontalCenter: !root.vertical ? parent.horizontalCenter : undefined
-        anchors.verticalCenter: root.vertical ? parent.verticalCenter : undefined
-
-        anchors.bottomMargin: (root.location === PlasmaCore.Types.BottomEdge) ? margin : 0
-        anchors.topMargin: (root.location === PlasmaCore.Types.TopEdge) ? margin : 0
-        anchors.leftMargin: (root.location === PlasmaCore.Types.LeftEdge) ? margin : 0
-        anchors.rightMargin: (root.location === PlasmaCore.Types.RightEdge) ? margin : 0
-
-        opacity: (separatorShadow.active) || forceHiddenState ? 0 : 0.4
-        visible: taskItem.isSeparator
-
-        width: root.vertical ? taskItem.metrics.iconSize : ((root.dragSource || root.inEditMode) ? LatteCore.Environment.separatorLength+taskItem.metrics.totals.lengthEdges: 1)
-        height: !root.vertical ? taskItem.metrics.iconSize : ((root.dragSource || root.inEditMode) ? LatteCore.Environment.separatorLength+taskItem.metrics.totals.lengthEdges: 1)
-
-        property bool forceHiddenState: false
-
-        readonly property int margin: taskItem.metrics.margin.screenEdge + metrics.margin.thickness
-
-        Behavior on opacity {
-            NumberAnimation { duration: taskItem.animations.speedFactor.current * taskItem.animations.duration.large }
-        }
-
-        Connections{
-            target: root
-
-            onDisableAllWindowsFunctionalityChanged: {
-                if (!root.inEditMode) {
-                    return;
-                }
-
-                taskItem.updateVisibilityBasedOnLaunchers();
-            }
-
-            onShowWindowsOnlyFromLaunchersChanged: {
-                if (!root.inEditMode) {
-                    return;
-                }
-
-                taskItem.updateVisibilityBasedOnLaunchers();
-            }
-
-            onInActivityChangeChanged: {
-                if ((root.showWindowsOnlyFromLaunchers || root.disableAllWindowsFunctionality) && !root.inActivityChange) {
-                    taskItem.updateVisibilityBasedOnLaunchers();
-                }
-            }
-        }
-
-        Rectangle {
-            anchors.centerIn: parent
-
-            width: root.vertical ? taskItem.metrics.iconSize - 4  : 1
-            height: !root.vertical ? taskItem.metrics.iconSize - 4 : 1
-            color: enforceLattePalette ? latteBridge.palette.textColor : theme.textColor
-        }
-
-
-    }
-
-    ///Shadow in tasks
-    Loader{
-        id: separatorShadow
-        anchors.fill: separatorItem
-        active: root.enableShadows && isSeparator && graphicsSystem.isAccelerated
-        opacity: separatorItem.forceHiddenState ? 0 : 0.4
-
-        Behavior on opacity {
-            NumberAnimation { duration: taskItem.animations.speedFactor.current * taskItem.animations.duration.large }
-        }
-
-        sourceComponent: DropShadow{
-            anchors.fill: parent
-            color: root.appShadowColor
-            fast: true
-            samples: 2 * radius
-            source: separatorItem
-            radius: root.appShadowSize
-            verticalOffset: 2
-        }
-    }
-
-    /* Rectangle{
-            anchors.fill: parent
-            color: "transparent"
-            border.width: 1
-            border.color: "blue"
-        } */
-
-    Flow{
-        id: taskFlow
-        width: parent.width
-        height: parent.height
-
-        // a hidden spacer for the first element to add stability
-        // IMPORTANT: hidden spacers must be tested on vertical !!!
-        HiddenSpacer{ id:hiddenSpacerLeft;}
-
-        Item{
-            width: wrapper.width
-            height: wrapper.height
-
-            Indicator.Bridge{
-                id: indicatorBridge
-            }
-
-            Indicator.Loader{
-                id: indicatorBackLayer
-                level: Indicator.LevelOptions {
-                    id: backLevelOptions
-                    isBackground: true
-                    bridge: indicatorBridge
-
-                    Binding {
-                        target: taskItem
-                        property: "iconOffsetX"
-                        value: backLevelOptions.requested.iconOffsetX
-                    }
-
-                    Binding {
-                        target: taskItem
-                        property: "iconOffsetY"
-                        value: backLevelOptions.requested.iconOffsetY
-                    }
-                }
-
-                Loader{
-                    anchors.fill: parent
-                    active: taskItem.debug.graphicsEnabled
-                    sourceComponent: Rectangle{
-                        color: "transparent"
-                        border.width: 1
-                        border.color: "purple"
-                        opacity: 0.4
-                    }
-                }
-            }
-
-            Wrapper{id: _wrapper}
-
-            Indicator.Loader{
-                id: indicatorFrontLayer
-                level: Indicator.LevelOptions {
-                    isForeground: true
-                    bridge: indicatorBridge
-                }
-            }
-        }
-
-        // a hidden spacer on the right for the last item to add stability
-        HiddenSpacer{ id:hiddenSpacerRight; rightSpacer: true }
-    }// Flow with hidden spacers inside
-
-    Loader {
-        id: parabolicAreaLoader
-        active: taskItem.parabolic.isEnabled
-        width: root.isHorizontal ? taskItem.width : taskItem.metrics.mask.thickness.zoomedForItems
-        height: root.isHorizontal ? taskItem.metrics.mask.thickness.zoomedForItems : taskItem.height
-
-        sourceComponent: ParabolicArea{}
-
-        states:[
-            State{
-                name: "top"
-                when: plasmoid.location === PlasmaCore.Types.TopEdge
-
-                AnchorChanges{
-                    target: parabolicAreaLoader
-                    anchors.horizontalCenter: parent.horizontalCenter; anchors.verticalCenter: undefined;
-                    anchors.right: undefined; anchors.left: undefined; anchors.top: parent.top; anchors.bottom: undefined;
-                }
-            },
-            State{
-                name: "left"
-                when: plasmoid.location === PlasmaCore.Types.LeftEdge
-
-                AnchorChanges{
-                    target: parabolicAreaLoader
-                    anchors.horizontalCenter: undefined; anchors.verticalCenter: parent.verticalCenter;
-                    anchors.right: undefined; anchors.left: parent.left; anchors.top: undefined; anchors.bottom: undefined;
-                }
-            },
-            State{
-                name: "right"
-                when: plasmoid.location === PlasmaCore.Types.RightEdge
-
-                AnchorChanges{
-                    target: parabolicAreaLoader
-                    anchors.horizontalCenter: undefined; anchors.verticalCenter: parent.verticalCenter;
-                    anchors.right: parent.right; anchors.left: undefined; anchors.top: undefined; anchors.bottom: undefined;
-                }
-            },
-            State{
-                name: "bottom"
-                when: plasmoid.location === PlasmaCore.Types.BottomEdge
-
-                AnchorChanges{
-                    target: parabolicAreaLoader
-                    anchors.horizontalCenter: parent.horizontalCenter; anchors.verticalCenter: undefined;
-                    anchors.right: undefined; anchors.left: undefined; anchors.top: undefined; anchors.bottom: parent.bottom;
-                }
-            }
-        ]
+    TaskMouseArea {
+        id: taskMouseArea
     }
 
     Timer {
@@ -613,7 +307,7 @@ MouseArea{
         onTriggered: {
             slotPublishGeometries();
 
-            if (taskItem.debug.timersEnabled) {
+            if (taskItem.abilities.debug.timersEnabled) {
                 console.log("plasmoid timer: publishGeometryTimer called...");
             }
         }
@@ -673,294 +367,20 @@ MouseArea{
 
     onLauncherUrlChanged: updateBadge();
 
-    ////// End of Values Changes /////
-
-
-    ///////////////// Mouse Area Events ///////////////////
-
-    onEntered: {
-        if (isLauncher && windowsPreviewDlg.visible) {
-            windowsPreviewDlg.hide(1);
-        }
-
-        if (root.latteView && (!root.showPreviews && root.titleTooltips) || (root.showPreviews && root.titleTooltips && isLauncher)){
-            taskItem.showTitleTooltip();
-        }
-
-        //! show previews if enabled
-        if(isAbleToShowPreview && !showPreviewsIsBlockedFromReleaseEvent && !isLauncher
-                && (((root.showPreviews || (windowsPreviewDlg.visible && !isLauncher))
-                     && windowsPreviewDlg.activeItem !== taskItem)
-                    || root.highlightWindows)){
-
-            if (!root.disableAllWindowsFunctionality) {
-                //! don't delay showing preview in normal states,
-                //! that is when the dock wasn't hidden
-                if (!hoveredTimer.running && !windowsPreviewDlg.visible) {
-                    //! first task with no previews shown can trigger the delay
-                    hoveredTimer.start();
-                } else if (windowsPreviewDlg.visible) {
-                    //! when the previews are already shown, update them immediately
-                    taskItem.showPreviewWindow();
-                }
-            }
-        }
-
-        taskItem.showPreviewsIsBlockedFromReleaseEvent = false;
-
-        if (root.autoScrollTasksEnabled) {
-            scrollableList.autoScrollFor(taskItem, false);
+    onShortcutRequestedActivate: {
+        if (taskItem.isGroupParent) {
+            taskItem.activateNextTask();
+        } else {
+            taskItem.activateTask();
         }
     }
 
-    onExited: {
-        taskItem.isAbleToShowPreview = true;
-
-        if (root.latteView && (!root.showPreviews || (root.showPreviews && isLauncher))){
-            root.latteView.hideTooltipLabel();
-        }
-
-        if (root.showPreviews) {
-            root.hidePreview(17.5);
-        }
+    onShortcutRequestedNewInstance: {
+        tasksModel.requestNewInstance(taskItem.modelIndex());
     }
 
-    // IMPORTANT: This must be improved ! even for small milliseconds  it reduces performance
-    onPositionChanged: {
-        if ((inBlockingAnimation && !(inAttentionAnimation||inFastRestoreAnimation||inMimicParabolicAnimation)))
-            return;
+    ////// End of Values Changes and Signals /////
 
-        if (root.latteView && root.latteView.isHalfShown) {
-            return;
-        }
-
-        if((inAnimation == false)&&(!root.taskInAnimation)&&(!root.disableRestoreZoom) && hoverEnabled){
-            // mouse.button is always 0 here, hence checking with mouse.buttons
-            if (pressX != -1 && mouse.buttons == Qt.LeftButton
-                    && isDragged
-                    && dragHelper.isDrag(pressX, pressY, mouse.x, mouse.y) ) {
-                root.dragSource = taskItem;
-                dragHelper.startDrag(taskItem, model.MimeType, model.MimeData,
-                                     model.LauncherUrlWithoutIcon, model.decoration);
-                pressX = -1;
-                pressY = -1;
-            }
-        }
-    }
-
-    onContainsMouseChanged:{
-        if(!containsMouse && !inAnimation) {
-            pressed=false;
-        }
-
-        ////disable hover effect///
-        if (isWindow && root.highlightWindows && !containsMouse) {
-            root.windowsHovered( root.plasma515 ? model.WinIdList : model.LegacyWinIdList , false);
-        }
-    }
-
-    onPressed: {
-        //console.log("Pressed Task Delegate..");
-        if (LatteCore.WindowSystem.compositingActive && !LatteCore.WindowSystem.isPlatformWayland) {
-            if(root.leftClickAction !== LatteTasks.Types.PreviewWindows) {
-                isAbleToShowPreview = false;
-                windowsPreviewDlg.hide(2);
-            }
-        }
-
-        slotPublishGeometries();
-
-        var modAccepted = modifierAccepted(mouse);
-
-        if ((mouse.button == Qt.LeftButton)||(mouse.button == Qt.MidButton) || modAccepted) {
-            lastButtonClicked = mouse.button;
-            pressed = true;
-            pressX = mouse.x;
-            pressY = mouse.y;
-
-            if(!modAccepted){
-                resistanerTimer.start();
-            }
-        }
-        else if (mouse.button == Qt.RightButton && !modAccepted){
-            // When we're a launcher, there's no window controls, so we can show all
-            // places without the menu getting super huge.
-            if (model.IsLauncher === true && !isSeparator) {
-                showContextMenu({showAllPlaces: true})
-            } else {
-                showContextMenu();
-            }
-        }
-    }
-
-    onReleased: {
-        //console.log("Released Task Delegate...");
-        resistanerTimer.stop();
-
-        if(pressed && (!inBlockingAnimation || inAttentionAnimation) && !isSeparator){
-
-            if (modifierAccepted(mouse) && !root.disableAllWindowsFunctionality){
-                if( !taskItem.isLauncher ){
-                    if (root.modifierClickAction == LatteTasks.Types.NewInstance) {
-                        tasksModel.requestNewInstance(modelIndex());
-                    } else if (root.modifierClickAction == LatteTasks.Types.Close) {
-                        tasksModel.requestClose(modelIndex());
-                    } else if (root.modifierClickAction == LatteTasks.Types.ToggleMinimized) {
-                        tasksModel.requestToggleMinimized(modelIndex());
-                    } else if ( root.modifierClickAction == LatteTasks.Types.CycleThroughTasks) {
-                        if (isGroupParent)
-                            subWindows.activateNextTask();
-                        else
-                            activateTask();
-                    } else if (root.modifierClickAction == LatteTasks.Types.ToggleGrouping) {
-                        tasksModel.requestToggleGrouping(modelIndex());
-                    }
-                } else {
-                    activateTask();
-                }
-            } else if (mouse.button == Qt.MidButton && !root.disableAllWindowsFunctionality){
-                if( !taskItem.isLauncher ){
-                    if (root.middleClickAction == LatteTasks.Types.NewInstance) {
-                        tasksModel.requestNewInstance(modelIndex());
-                    } else if (root.middleClickAction == LatteTasks.Types.Close) {
-                        tasksModel.requestClose(modelIndex());
-                    } else if (root.middleClickAction == LatteTasks.Types.ToggleMinimized) {
-                        tasksModel.requestToggleMinimized(modelIndex());
-                    } else if ( root.middleClickAction == LatteTasks.Types.CycleThroughTasks) {
-                        if (isGroupParent)
-                            subWindows.activateNextTask();
-                        else
-                            activateTask();
-                    } else if (root.middleClickAction == LatteTasks.Types.ToggleGrouping) {
-                        tasksModel.requestToggleGrouping(modelIndex());
-                    }
-                } else {
-                    activateTask();
-                }
-            } else if (mouse.button == Qt.LeftButton){
-                if( !taskItem.isLauncher && !root.disableAllWindowsFunctionality ){
-                    if ( (root.leftClickAction === LatteTasks.Types.PreviewWindows && isGroupParent)
-                            || ( (LatteCore.WindowSystem.isPlatformWayland || !LatteCore.WindowSystem.compositingActive)
-                                && root.leftClickAction === LatteTasks.Types.PresentWindows
-                                && isGroupParent) ) {
-                        if(windowsPreviewDlg.activeItem !== taskItem || !windowsPreviewDlg.visible){
-                            showPreviewWindow();
-                        } else {
-                            forceHidePreview(21.1);
-                        }
-                    } else if ( (root.leftClickAction === LatteTasks.Types.PresentWindows && !(isGroupParent && !LatteCore.WindowSystem.compositingActive))
-                               || ((root.leftClickAction === LatteTasks.Types.PreviewWindows && !isGroupParent)) ) {
-                        activateTask();
-                    } else if (root.leftClickAction === LatteTasks.Types.CycleThroughTasks) {
-                        if (isGroupParent)
-                            subWindows.activateNextTask();
-                        else
-                            activateTask();
-                    }
-                } else {
-                    activateTask();
-                }
-            }
-
-            backend.cancelHighlightWindows();
-        }
-
-        pressed = false;
-    }
-
-    onWheel: {
-        var wheelActionsEnabled = (root.taskScrollAction !== LatteTasks.Types.ScrollNone || manualScrollTasksEnabled);
-
-        if (isSeparator
-                || wheelIsBlocked
-                || !wheelActionsEnabled
-                || inBouncingAnimation
-                || (latteView && (latteView.dockIsHidden || latteView.inSlidingIn || latteView.inSlidingOut))){
-
-            return;
-        }
-
-        var angleVertical = wheel.angleDelta.y / 8;
-        var angleHorizontal = wheel.angleDelta.x / 8;
-
-        wheelIsBlocked = true;
-        scrollDelayer.start();
-
-        var verticalDirection = (Math.abs(angleVertical) > Math.abs(angleHorizontal));
-        var mainAngle = verticalDirection ? angleVertical : angleHorizontal;
-
-        var positiveDirection = (mainAngle > 12);
-        var negativeDirection = (mainAngle < -12);
-
-        var parallelScrolling = (verticalDirection && plasmoid.formFactor === PlasmaCore.Types.Vertical)
-                || (!verticalDirection && plasmoid.formFactor === PlasmaCore.Types.Horizontal);
-
-        if (positiveDirection) {
-            slotPublishGeometries();
-
-            var overflowScrollingAccepted = (root.manualScrollTasksEnabled
-                                             && scrollableList.contentsExceed
-                                             && (root.manualScrollTasksType === LatteTasks.Types.ManualScrollVerticalHorizontal
-                                                 || (root.manualScrollTasksType === LatteTasks.Types.ManualScrollOnlyParallel && parallelScrolling)) );
-
-
-            if (overflowScrollingAccepted) {
-                scrollableList.decreasePos();
-            } else {
-                if (isLauncher || root.disableAllWindowsFunctionality) {
-                    wrapper.runLauncherAnimation();
-                } else if (isGroupParent) {
-                    subWindows.activateNextTask();
-                } else {
-                    var taskIndex = modelIndex();
-
-                    if (isMinimized) {
-                        tasksModel.requestToggleMinimized(taskIndex);
-                    }
-
-                    tasksModel.requestActivate(taskIndex);
-                }
-
-                // hidePreviewWindow();
-            }
-        } else if (negativeDirection) {
-            slotPublishGeometries();
-
-            var overflowScrollingAccepted = (root.manualScrollTasksEnabled
-                                             && scrollableList.contentsExceed
-                                             && (root.manualScrollTasksType === LatteTasks.Types.ManualScrollVerticalHorizontal
-                                                 || (root.manualScrollTasksType === LatteTasks.Types.ManualScrollOnlyParallel && parallelScrolling)) );
-
-
-            if (overflowScrollingAccepted) {
-                scrollableList.increasePos();
-            } else {
-                if (isLauncher || root.disableAllWindowsFunctionality) {
-                    // do nothing
-                } else if (isGroupParent) {
-                    if (root.taskScrollAction === LatteTasks.Types.ScrollToggleMinimized) {
-                        subWindows.minimizeTask();
-                    } else {
-                        subWindows.activatePreviousTask();
-                    }
-                } else {
-                    var taskIndex = modelIndex();
-
-                    var hidingTask = (!isMinimized && root.taskScrollAction === LatteTasks.Types.ScrollToggleMinimized);
-
-                    if (isMinimized || hidingTask) {
-                        tasksModel.requestToggleMinimized(taskIndex);
-                    }
-
-                    if (!hidingTask) {
-                        tasksModel.requestActivate(taskIndex);
-                    }
-                }
-
-                // hidePreviewWindow();
-            }
-        }
-    }
 
     //! A timer is needed in order to handle also touchpads that probably
     //! send too many signals very fast. This way the signals per sec are limited.
@@ -987,10 +407,6 @@ MouseArea{
         inAnimation = false;
     }
 
-    function sltClearZoom(){
-        restoreAnimation.start();
-    }
-
     function handlerDraggingFinished(){
         isDragged = false;
     }
@@ -1006,7 +422,7 @@ MouseArea{
     function activateTask() {
         if( taskItem.isLauncher || root.disableAllWindowsFunctionality){
             if (LatteCore.WindowSystem.compositingActive) {
-                wrapper.runLauncherAnimation();
+                taskItem.launcherAnimationRequested();
             } else {
                 launcherAction();
             }
@@ -1046,41 +462,22 @@ MouseArea{
         }
 
         if(windowsPreviewDlg.activeItem !== taskItem){
-            if (!root.latteView
-                    || (root.latteView && !root.latteView.isHalfShown && !root.latteView.inSlidingIn && !root.latteView.inSlidingOut)) {
-                if (root.latteView && root.titleTooltips) {
-                    root.latteView.hideTooltipLabel();
-                }
-
+            if (!taskItem.abilities.myView.isReady
+                    || (taskItem.abilities.myView.isReady && taskItem.abilities.myView.isShownFully)) {
                 taskItem.preparePreviewWindow(false);
                 windowsPreviewDlg.show(taskItem);
             }
         }
     }
 
-    function showTitleTooltip() {
-        if (root.latteView && root.titleTooltips){
-            var displayText = isWindow ? model.display : model.AppName;
-            var maxCharacters = 80;
-
-            var fixedDisplayText = displayText.length>maxCharacters ? displayText.substring(0,maxCharacters-1) + "..." : displayText;
-
-            root.latteView.showTooltipLabel(taskItem, fixedDisplayText);
-        }
-    }
-
     function hidePreviewWindow() {
         if(windowsPreviewDlg.activeItem === taskItem){
             windowsPreviewDlg.hide("14.1");
-
-            if (root.latteView && root.titleTooltips && containsMouse) {
-                showTitleTooltip();
-            }
         }
     }
 
     function preparePreviewWindow(hideClose){
-        windowsPreviewDlg.visualParent = previewsVisualParent;
+        windowsPreviewDlg.visualParent = tooltipVisualParent;
         toolTipDelegate.parentTask = taskItem;
         toolTipDelegate.rootIndex = tasksModel.makeModelIndex(itemIndex, -1);
 
@@ -1231,18 +628,6 @@ MouseArea{
         inBlockingAnimation = value;
     }
 
-    function slotMimicEnterForParabolic(){
-        if (containsMouse) {
-            if (inMimicParabolicAnimation) {
-                mimicParabolicScale = taskItem.parabolic.factor.zoom;
-            }
-
-            if (parabolicAreaLoader.active) {
-                parabolicAreaLoader.item.calculateParabolicScales(icList.currentSpot);
-            }
-        }
-    }
-
     function slotShowPreviewForTasks(group) {
         if (group === taskItem && !windowsPreviewDlg.visible) {
             preparePreviewWindow(true);
@@ -1253,15 +638,15 @@ MouseArea{
     function slotPublishGeometries() {
         //! this way we make sure that layouts that are in different activities that the current layout
         //! don't publish their geometries
-        if ( canPublishGeometries && (!latteView || (latteView && root.viewLayout && root.viewLayout.isCurrent()))) {
-            var globalChoords = backend.globalRect(wrapper.visualIconItem);
+        if ( canPublishGeometries && (!taskItem.abilities.myView.isReady || (taskItem.abilities.myView.isReady && taskItem.abilities.myView.inCurrentLayout()))) {
+            var globalChoords = backend.globalRect(taskItem.parabolicItem.contentItemContainer);
             var limits = backend.globalRect(scrollableList);
 
             //! Limit the published geometries boundaries at scrolling area boundaries
             var adjX = Math.min(limits.x+limits.width, Math.max(limits.x, globalChoords.x));
             var adjY = Math.min(limits.y+limits.height, Math.max(limits.y, globalChoords.y));
 
-            var length = taskItem.metrics.iconSize * wrapper.mScale;
+            var length = taskItem.abilities.metrics.iconSize * taskItem.parabolicItem.zoom;
             var thickness = length;
 
             //! Magic Lamp effect doesn't like coordinates outside the screen and
@@ -1296,18 +681,18 @@ MouseArea{
             globalChoords.x = adjX;
             globalChoords.y = adjY;
 
-            if (latteView && latteView.dockIsHidden) {
+            if (taskItem.abilities.myView.isHidden) {
                 if (root.location === PlasmaCore.Types.BottomEdge) {
-                    globalChoords.y = root.screenGeometry.y+root.screenGeometry.height-1;
+                    globalChoords.y = taskItem.abilities.myView.screenGeometry.y + taskItem.abilities.myView.screenGeometry.height-1;
                     globalChoords.height = 1;
                 } else if (root.location === PlasmaCore.Types.TopEdge) {
-                    globalChoords.y = root.screenGeometry.y+1;
+                    globalChoords.y = taskItem.abilities.myView.screenGeometry.y+1;
                     globalChoords.height = 1;
                 } else if (root.location === PlasmaCore.Types.LeftEdge) {
-                    globalChoords.x = root.screenGeometry.x+1;
+                    globalChoords.x = taskItem.abilities.myView.screenGeometry.x+1;
                     globalChoords.width = 1;
                 } else if (root.location === PlasmaCore.Types.RightEdge) {
-                    globalChoords.x = root.screenGeometry.x+root.screenGeometry.width - 1;
+                    globalChoords.x = taskItem.abilities.myView.screenGeometry.x + taskItem.abilities.myView.screenGeometry.width - 1;
                     globalChoords.width = 1;
                 }
             }
@@ -1318,7 +703,7 @@ MouseArea{
 
     function slotWaitingLauncherRemoved(launch) {
         if ((isWindow || isStartup || isLauncher) && !visible && launch === launcherUrl) {
-            wrapper.mScale = 1;
+            taskItem.parabolicItem.zoom = 1;
             visible = true;
         }
     }
@@ -1374,7 +759,7 @@ MouseArea{
         }
     }
 
-    function slotLaunchersChangedFor(launcher) {
+    function onLauncherChanged(launcher) {
         if ((root.showWindowsOnlyFromLaunchers || root.disableAllWindowsFunctionality) && launcher === launcherUrl) {
             updateVisibilityBasedOnLaunchers()
         }
@@ -1383,7 +768,7 @@ MouseArea{
     function updateVisibilityBasedOnLaunchers(){
         var launcherExists = !(((tasksModel.launcherPosition(taskItem.launcherUrl) == -1)
                                 && (tasksModel.launcherPosition(taskItem.launcherUrlWithIcon) == -1) )
-                               || !tasksModel.launcherInCurrentActivity(taskItem.launcherUrl));
+                               || !taskItem.abilities.launchers.inCurrentActivity(taskItem.launcherUrl));
 
         if (root.showWindowsOnlyFromLaunchers || root.disableAllWindowsFunctionality) {
             var hideWindow =  !launcherExists && (taskItem.isWindow || root.disableAllWindowsFunctionality);
@@ -1437,12 +822,43 @@ MouseArea{
         onStreamsChanged: taskItem.updateAudioStreams()
     }
 
+    //fix bug #478, when changing form factor sometimes the tasks are not positioned
+    //correctly, in such case we make a fast reinitialization for the sizes
+    Connections {
+        target: plasmoid
+        onFormFactorChanged:{
+            taskItem.inAddRemoveAnimation = false;
+        }
+    }
+
     Connections {
         target: root
         //trying to fix #440, showing the audio icon indicator to irrelevant tasks
         //after dragging an existent task with audio
         onDragSourceChanged: taskItem.updateAudioStreams()
         onShowAudioBadgeChanged: taskItem.updateAudioStreams()
+
+        onDisableAllWindowsFunctionalityChanged: {
+            if (!root.inEditMode) {
+                return;
+            }
+
+            taskItem.updateVisibilityBasedOnLaunchers();
+        }
+
+        onShowWindowsOnlyFromLaunchersChanged: {
+            if (!root.inEditMode) {
+                return;
+            }
+
+            taskItem.updateVisibilityBasedOnLaunchers();
+        }
+
+        onInActivityChangeChanged: {
+            if ((root.showWindowsOnlyFromLaunchers || root.disableAllWindowsFunctionality) && !root.inActivityChange) {
+                taskItem.updateVisibilityBasedOnLaunchers();
+            }
+        }
     }
 
     Connections {
@@ -1455,68 +871,34 @@ MouseArea{
     }
 
     Connections {
-        target: shortcuts
-        onSglActivateEntryAtIndex: {
-            if (!taskItem.shortcuts.isEnabled) {
-                return;
-            }
-
-            var shortcutIndex = taskItem.shortcuts.shortcutIndex(taskItem.itemIndex);
-
-            if (shortcutIndex === entryIndex) {
-                if (taskItem.isGroupParent) {
-                    taskItem.activateNextTask();
-                } else {
-                    taskItem.activateTask();
-                }
-            }
-        }
-
-        onSglNewInstanceForEntryAtIndex: {
-            if (!taskItem.shortcuts.isEnabled) {
-                return;
-            }
-
-            var shortcutIndex = taskItem.shortcuts.shortcutIndex(taskItem.itemIndex);
-
-            if (shortcutIndex === entryIndex) {
-                tasksModel.requestNewInstance(taskItem.modelIndex());
-            }
-        }
-    }
-
-    Connections {
-        target: latteView
-        onDockIsHiddenChanged: {
-            if (dockIsHidden) {
+        target: taskItem.abilities.myView
+        onIsHiddenChanged: {
+            if (taskItem.abilities.myView.isHidden) {
                 taskItem.slotPublishGeometries();
             }
         }
 
-        onDockIsShownCompletelyChanged: {
-            if (dockIsShownCompletely) {
+        onIsShownFullyChanged: {
+            if (taskItem.abilities.myView.isShownFully) {
                 taskItem.slotPublishGeometries();
             }
         }
     }
-
 
     ///// End of Helper functions ////
 
     Component.onCompleted: {
+        parabolicItem.opacity = 0;
+
         root.draggingFinished.connect(handlerDraggingFinished);
         root.publishTasksGeometries.connect(slotPublishGeometries);
         root.showPreviewForTasks.connect(slotShowPreviewForTasks);
-        root.mimicEnterForParabolic.connect(slotMimicEnterForParabolic);
-        root.launchersUpdatedFor.connect(slotLaunchersChangedFor);
 
-        parabolic.sglClearZoom.connect(sltClearZoom);
-
-        var hasShownLauncher = ((tasksModel.launcherPosition(taskItem.launcherUrl) !== -1)
-                                || (tasksModel.launcherPosition(taskItem.launcherUrlWithIcon) !== -1) );
+        taskItem.abilities.launchers.launcherChanged.connect(onLauncherChanged);
+        taskItem.abilities.launchers.launcherRemoved.connect(onLauncherChanged);
 
         //startup without launcher
-        var hideStartup =  ((!hasShownLauncher || !tasksModel.launcherInCurrentActivity(taskItem.launcherUrl))
+        var hideStartup =  ((!hasShownLauncher || !taskItem.abilities.launchers.inCurrentActivity(taskItem.launcherUrl))
                             && taskItem.isStartup);
 
         if (!LatteCore.WindowSystem.compositingActive) {
@@ -1538,62 +920,17 @@ MouseArea{
         root.draggingFinished.disconnect(handlerDraggingFinished);
         root.publishTasksGeometries.disconnect(slotPublishGeometries);
         root.showPreviewForTasks.disconnect(slotShowPreviewForTasks);
-        root.mimicEnterForParabolic.disconnect(slotMimicEnterForParabolic);
-        root.launchersUpdatedFor.disconnect(slotLaunchersChangedFor);
 
-        parabolic.sglClearZoom.disconnect(sltClearZoom);
+        taskItem.abilities.launchers.launcherChanged.disconnect(onLauncherChanged);
+        taskItem.abilities.launchers.launcherRemoved.disconnect(onLauncherChanged);
 
         tasksExtendedManager.waitingLauncherRemoved.disconnect(slotWaitingLauncherRemoved);
 
-        wrapper.sendEndOfNeedBothAxisAnimation();
+        taskItem.parabolicItem.sendEndOfNeedBothAxisAnimation();
     }
 
     /////Animations
-
     TaskAnimations.ShowWindowAnimation{ id: _showWindowAnimation }
-    TaskAnimations.RestoreAnimation{ id: _restoreAnimation }
-
-    //A Timer to check how much time the task is hovered in order to check if we must
-    //show window previews
-    Timer {
-        id: _hoveredTimer
-        interval: Math.max(150,plasmoid.configuration.previewsDelay)
-        repeat: false
-
-        onTriggered: {
-            if (root.disableAllWindowsFunctionality || !isAbleToShowPreview) {
-                return;
-            }
-
-            if (taskItem.containsMouse) {
-                if (root.showPreviews || (windowsPreviewDlg.visible && !isLauncher)) {
-                    showPreviewWindow();
-                }
-
-                if (taskItem.isWindow && root.highlightWindows) {
-                    root.windowsHovered( root.plasma515 ? model.WinIdList : model.LegacyWinIdList , taskItem.containsMouse);
-                }
-            }
-        }
-    }
-
-    //A Timer to help in resist a bit to dragging, the user must try
-    //to press a little first before dragging Started
-    Timer {
-        id: resistanerTimer
-        interval: taskItem.resistanceDelay
-        repeat: false
-
-        onTriggered: {
-            if (!taskItem.inBlockingAnimation){
-                taskItem.isDragged = true;
-            }
-
-            if (taskItem.debug.timersEnabled) {
-                console.log("plasmoid timer: resistanerTimer called...");
-            }
-        }
-    }
 
     // when changing activities and desktops the index of the tasks
     // is updated immediately to -1, this timer protects this indexing
@@ -1608,7 +945,7 @@ MouseArea{
                 taskItem.lastValidIndex = taskItem.itemIndex;
             }
 
-            if (taskItem.debug.timersEnabled) {
+            if (taskItem.abilities.debug.timersEnabled) {
                 console.log("plasmoid timer: lastValidTimer called...");
             }
         }

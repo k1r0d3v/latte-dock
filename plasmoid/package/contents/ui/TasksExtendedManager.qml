@@ -49,14 +49,19 @@ Item {
     property variant launchersToBeMoved: []
 
     //! Launchers that are added from user actions. They can be used in order
-    //! to be provide adding animations
+    //! to provide addition animations properly
     property variant launchersToBeAdded: []
+
+    //! Launchers that are added from user actions. They can be used in order
+    //! to provide removal animations properly
+    property variant launchersToBeRemoved: []
 
     //! Tasks that change state (launcher,startup,window) and
     //! at the next state must look the same concerning the parabolic effect:
-    //! (id, mScale)
+    //! (id, zoom)
     property variant frozenTasks: []
 
+    property int launchersToBeRemovedCount: 0 //is used to update instantly relevant bindings
 
     signal waitingLauncherRemoved(string launch);
 
@@ -146,6 +151,41 @@ Item {
         console.log("TO BE ADDED LAUNCHERS ::: " + launchersToBeAdded);
     }
 
+    //! LAUNCHERSTOBEREMOVED
+    function addToBeRemovedLauncher(launcher){
+        arraysGarbageCollectorTimer.restart();
+
+        if (isLauncherToBeRemoved(launcher)) {
+            return;
+        }
+
+        launchersToBeRemoved.push(launcher);
+        launchersToBeRemovedCount++;
+    }
+
+    function removeToBeRemovedLauncher(launcher){
+        if (!isLauncherToBeRemoved(launcher)) {
+            return;
+        }
+
+        for(var i=0; i<launchersToBeRemoved.length; ++i){
+            if (launchersToBeRemoved[i] === launcher) {
+                launchersToBeRemoved.splice(i,1);
+                launchersToBeRemovedCount--;
+                return;
+            }
+        }
+    }
+
+    function isLauncherToBeRemoved(launcher) {
+        return launchersToBeRemoved.indexOf(launcher)>=0;
+    }
+
+
+    function printToBeRemovedLaunchers() {
+        console.log("TO BE REMOVED LAUNCHERS ::: " + launchersToBeRemoved);
+    }
+
     //! IMMEDIATELAUNCHERS
     function addImmediateLauncher(launch){
         arraysGarbageCollectorTimer.restart();
@@ -211,9 +251,9 @@ Item {
         var frozenTask = getFrozenTask(identifier);
 
         if (frozenTask) {
-            frozenTask.mScale = scale;
+            frozenTask.zoom = scale;
         } else {
-            frozenTasks.push({id: identifier, mScale: scale});
+            frozenTasks.push({id: identifier, zoom: scale});
         }
     }
 
@@ -221,7 +261,7 @@ Item {
         var fzTasks= "";
 
         for(var i=0; i<frozenTasks.length; ++i) {
-            fzTasks = frozenTasks[i].id + "," + frozenTasks[i].mScale + "__";
+            fzTasks = frozenTasks[i].id + "," + frozenTasks[i].zoom + "__";
         }
 
         console.log("FROZEN TASKS ::: " + fzTasks);
@@ -301,6 +341,15 @@ Item {
         console.log("TO BE MOVED LAUNCHERS ::: " + tbmLaunchers);
     }
 
+    //! Connections
+    Connections {
+        target: appletAbilities.launchers
+        onLauncherInRemoving: tasksExtManager.addToBeRemovedLauncher(launcherUrl);
+        onLauncherInAdding: tasksExtManager.addToBeAddedLauncher(launcherUrl);
+        onLauncherInMoving: tasksExtManager.addLauncherToBeMoved(launcherUrl, pos);
+    }
+
+
     //!Trying to avoid a binding loop in TaskItem for modelLauncherUrl
     Timer {
         id: launchersToBeMovedTimer
@@ -322,7 +371,10 @@ Item {
     Timer {
         id: delayedLaynchersSyncTimer
         interval: 450
-        onTriggered: tasksModel.syncLaunchers();
+        onTriggered: {
+            tasksModel.syncLaunchers();
+            appletAbilities.launchers.validateSyncedLaunchersOrder();
+        }
     }
 
 
@@ -338,12 +390,14 @@ Item {
             tasksExtManager.printImmediateLaunchers();
             tasksExtManager.printToBeAddedLaunchers();
             tasksExtManager.printToBeMovedLaunchers();
+            tasksExtManager.printToBeRemovedLaunchers();
             tasksExtManager.printWaitingLaunchers();
             tasksExtManager.printFrozenTasks();
 
             immediateLaunchers.splice(0, immediateLaunchers.length);
             launchersToBeAdded.splice(0, launchersToBeAdded.length);
             launchersToBeMoved.splice(0, launchersToBeMoved.length);
+            launchersToBeRemoved.splice(0, launchersToBeRemoved.length);
             waitingLaunchers.splice(0, waitingLaunchers.length);
             frozenTasks.splice(0, frozenTasks.length);
         }

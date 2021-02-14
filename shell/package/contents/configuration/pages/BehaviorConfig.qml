@@ -34,12 +34,12 @@ import org.kde.latte.private.containment 0.1 as LatteContainment
 import "../../controls" as LatteExtraControls
 
 PlasmaComponents.Page {
-    Layout.maximumWidth: content.width + content.Layout.leftMargin * 2
-    Layout.maximumHeight: content.height + units.smallSpacing * 2
+    id: page
+    width: content.width + content.Layout.leftMargin * 2
+    height: content.height + units.smallSpacing * 2
 
     ColumnLayout {
-        id: content
-
+        id: content       
         width: (dialog.appliedWidth - units.smallSpacing * 2) - Layout.leftMargin * 2
         spacing: dialog.subGroupSpacing
         anchors.horizontalCenter: parent.horizontalCenter
@@ -591,7 +591,7 @@ PlasmaComponents.Page {
                         }
 
                         LatteComponents.TextField {
-                            Layout.preferredWidth: width
+                            Layout.preferredWidth: implicitWidth
                             text: latteView.visibility.timerShow
 
                             onValueChanged: {
@@ -622,7 +622,7 @@ PlasmaComponents.Page {
                         }
 
                         LatteComponents.TextField{
-                            Layout.preferredWidth: width
+                            Layout.preferredWidth: implicitWidth
                             text: latteView.visibility.timerHide
                             maxValue: 5000
 
@@ -656,10 +656,6 @@ PlasmaComponents.Page {
                                                               leftBtnLbl.implicitWidth,
                                                               midBtnLbl.implicitWidth)
 
-                LatteComponents.SubHeader {
-                    text: i18n("Active Window")
-                }
-
                 ColumnLayout {
                     RowLayout {
                         Layout.topMargin: units.smallSpacing
@@ -668,14 +664,14 @@ PlasmaComponents.Page {
                             id: trackActiveLbl
                             Layout.minimumWidth: actionsPropertiesColumn.maxLabelWidth
                             Layout.maximumWidth: actionsPropertiesColumn.maxLabelWidth
-                            text: i18n("Track From")
+                            text: i18nc("track active window","Track")
                         }
 
                         LatteComponents.ComboBox {
                             id: activeWindowFilterCmb
                             Layout.fillWidth: true
-                            model: [i18nc("track from current screen", "Current Screen"),
-                                i18nc("track from all screens", "All Screens")]
+                            model: [i18nc("track from current screen", "Active Window From Current Screen"),
+                                i18nc("track from all screens", "Active Window From All Screens")]
 
                             currentIndex: plasmoid.configuration.activeWindowFilter
 
@@ -693,11 +689,8 @@ PlasmaComponents.Page {
                     }
                 }
 
-                LatteComponents.SubHeader {
-                    text: i18n("Empty Area")
-                }
-
                 ColumnLayout {
+                    Layout.topMargin: units.smallSpacing
                     RowLayout {
                         PlasmaComponents.Label {
                             id: leftBtnLbl
@@ -709,13 +702,16 @@ PlasmaComponents.Page {
                         PlasmaComponents.Button {
                             Layout.fillWidth: true
                             text: i18n("Drag Active Window")
-                            checked: plasmoid.configuration.dragActiveWindowEnabled
                             checkable: true
-                            tooltip: i18n("The user can use left mouse button to drag and maximized/restore last active window")
+                            tooltip: i18n("The user can use left mouse button to drag and maximized/restore last active window from empty areas")
                             iconName: "transform-move"
 
+                            readonly property int dragActiveWindowEnabled: plasmoid.configuration.dragActiveWindowEnabled
+
+                            onDragActiveWindowEnabledChanged: checked = dragActiveWindowEnabled
+
                             onClicked: {
-                                plasmoid.configuration.dragActiveWindowEnabled = !plasmoid.configuration.dragActiveWindowEnabled;
+                                plasmoid.configuration.dragActiveWindowEnabled = checked;
                             }
                         }
                     }
@@ -731,13 +727,16 @@ PlasmaComponents.Page {
                         PlasmaComponents.Button {
                             Layout.fillWidth: true
                             text: i18n("Close Active Window")
-                            checked: plasmoid.configuration.closeActiveWindowEnabled
                             checkable: true
-                            tooltip: i18n("The user can use middle mouse button to close last active window")
+                            tooltip: i18n("The user can use middle mouse button to close last active window from empty areas")
                             iconName: "window-close"
 
+                            readonly property int closeActiveWindowEnabled: plasmoid.configuration.closeActiveWindowEnabled
+
+                            onCloseActiveWindowEnabledChanged: checked = closeActiveWindowEnabled;
+
                             onClicked: {
-                                plasmoid.configuration.closeActiveWindowEnabled = !plasmoid.configuration.closeActiveWindowEnabled;
+                                plasmoid.configuration.closeActiveWindowEnabled = checked;
                             }
                         }
                     }
@@ -755,7 +754,7 @@ PlasmaComponents.Page {
                         LatteComponents.ComboBox {
                             id: scrollAction
                             Layout.fillWidth: true
-                            model: [i18nc("none scroll actions", "None Action"),
+                            model: [i18nc("none scroll actions", "No Action"),
                                 i18n("Cycle Through Desktops"),
                                 i18n("Cycle Through Activities"),
                                 i18n("Cycle Through Tasks"),
@@ -797,8 +796,7 @@ PlasmaComponents.Page {
                         Layout.maximumWidth: dialog.optionsWidth
                         text: i18n("Thin title tooltips on hovering")
                         tooltip: i18n("Show narrow tooltips produced by Latte for items.\nThese tooltips are not drawn when applets zoom effect is disabled");
-                        checked: plasmoid.configuration.titleTooltips
-                        enabled: latteView.type === LatteCore.Types.DockView
+                        value: plasmoid.configuration.titleTooltips
 
                         onClicked: {
                             plasmoid.configuration.titleTooltips = !plasmoid.configuration.titleTooltips;
@@ -809,8 +807,8 @@ PlasmaComponents.Page {
                         id: mouseWheelChk
                         Layout.maximumWidth: dialog.optionsWidth
                         text: i18n("Expand popup through mouse wheel")
-                        checked: plasmoid.configuration.mouseWheelActions
                         tooltip: i18n("Show or Hide applet popup through mouse wheel action")
+                        value: plasmoid.configuration.mouseWheelActions
                         visible: dialog.advancedLevel
 
                         onClicked: {
@@ -822,22 +820,21 @@ PlasmaComponents.Page {
                         id: autoSizeChk
                         Layout.maximumWidth: dialog.optionsWidth
                         text: i18n("Adjust size automatically when needed")
-                        checked: plasmoid.configuration.autoSizeEnabled
                         tooltip: i18n("Items decrease their size when exceed maximum length and increase it when they can fit in")
+                        value: plasmoid.configuration.autoSizeEnabled
                         visible: dialog.advancedLevel
-                        enabled: latteView.type === LatteCore.Types.DockView
 
                         onClicked: {
-                            plasmoid.configuration.autoSizeEnabled = !plasmoid.configuration.autoSizeEnabled
+                            plasmoid.configuration.autoSizeEnabled = !plasmoid.configuration.autoSizeEnabled;
                         }
                     }
 
                     LatteComponents.CheckBox {
                         Layout.maximumWidth: dialog.optionsWidth
                        // Layout.maximumHeight: mouseWheelChk.height
-                        text: i18n("➊ Activate based on position global shortcuts")
-                        checked: latteView.isPreferredForShortcuts || (!latteView.layout.preferredForShortcutsTouched && latteView.isHighestPriorityView())
+                        text: i18n("Activate based on position global shortcuts")
                         tooltip: i18n("This view is used for based on position global shortcuts. Take note that only one view can have that option enabled for each layout")
+                        value: latteView.isPreferredForShortcuts || (!latteView.layout.preferredForShortcutsTouched && latteView.isHighestPriorityView())
 
                         onClicked: {
                             latteView.isPreferredForShortcuts = checked;
@@ -852,7 +849,7 @@ PlasmaComponents.Page {
             LatteComponents.SubHeader {
                 id: floatingSubCategory
                 text: i18n("Floating")
-                enabled: !plasmoid.configuration.shrinkThickMargins && (plasmoid.configuration.screenEdgeMargin >= 0)
+                enabled: plasmoid.configuration.screenEdgeMargin >= 0
             }
 
             LatteComponents.CheckBoxesColumn {
@@ -864,9 +861,9 @@ PlasmaComponents.Page {
                     LatteComponents.CheckBox {
                         Layout.maximumWidth: dialog.optionsWidth
                         text: i18n("Always use floating gap for user interaction")
-                        checkedState: plasmoid.configuration.floatingInternalGapIsForced
-                        partiallyCheckedEnabled: true
                         tooltip: i18n("Floating gap is always used from applets and any relevant user interaction when \nthat option is enabled. Default option is auto selecting that behavior.")
+                        partiallyCheckedEnabled: true
+                        value: plasmoid.configuration.floatingInternalGapIsForced
 
                         onClicked: {
                             plasmoid.configuration.floatingInternalGapIsForced = checkedState;
@@ -876,11 +873,23 @@ PlasmaComponents.Page {
                     LatteComponents.CheckBox {
                         Layout.maximumWidth: dialog.optionsWidth
                         text: i18n("Hide floating gap for maximized windows")
-                        checked: plasmoid.configuration.hideFloatingGapForMaximized
                         tooltip: i18n("Floating gap is disabled when there are maximized windows")
+                        value: plasmoid.configuration.hideFloatingGapForMaximized
 
                         onClicked: {
-                            plasmoid.configuration.hideFloatingGapForMaximized = checked;
+                            plasmoid.configuration.hideFloatingGapForMaximized = !plasmoid.configuration.hideFloatingGapForMaximized;
+                        }
+                    }
+
+                    LatteComponents.CheckBox {
+                        Layout.maximumWidth: dialog.optionsWidth
+                        enabled: latteView.visibility.mode === LatteCore.Types.AlwaysVisible
+                        text: i18n("Mirror floating gap when it is shown")
+                        tooltip: i18n("Floating gap is mirrored when it is shown in Always Visible mode")
+                        value: plasmoid.configuration.floatingGapIsMirrored
+
+                        onClicked: {
+                            plasmoid.configuration.floatingGapIsMirrored = !plasmoid.configuration.floatingGapIsMirrored;
                         }
                     }
                 }
@@ -909,47 +918,46 @@ PlasmaComponents.Page {
                 LatteComponents.CheckBox {
                     Layout.maximumWidth: dialog.optionsWidth
                     text: i18n("Activate KWin edge after hiding")
-                    checked: latteView.visibility.enableKWinEdges
                     tooltip: i18n("After the view becomes hidden, KWin is informed to track user feedback. For example an edge visual hint is shown whenever the mouse approaches the hidden view")
                     enabled: !dialog.viewIsPanel
                              && !latteView.byPassWM
                              && latteView.visibility.mode !== LatteCore.Types.SidebarOnDemand
                              && latteView.visibility.mode !== LatteCore.Types.SidebarAutoHide
+                    value: latteView.visibility.enableKWinEdges
 
                     onClicked: {
-                        latteView.visibility.enableKWinEdges = checked;
+                        latteView.visibility.enableKWinEdges = !latteView.visibility.enableKWinEdges;
                     }
                 }
 
                 LatteComponents.CheckBox {
                     Layout.maximumWidth: dialog.optionsWidth
                     text: i18n("Can be above fullscreen windows")
-                    checked: latteView.byPassWM
-
                     tooltip: i18n("BypassWindowManagerHint flag for the window. The view will be above all windows even those set as 'Always On Top'")
+                    value: latteView.byPassWM
 
                     onCheckedChanged: {
-                        latteView.byPassWM = checked;
+                        latteView.byPassWM = !latteView.byPassWM;
                     }
                 }
 
                 LatteComponents.CheckBox {
                     Layout.maximumWidth: dialog.optionsWidth
                     text: i18n("Raise on desktop change")
-                    checked: latteView.visibility.raiseOnDesktop
+                    value: latteView.visibility.raiseOnDesktop
 
                     onClicked: {
-                        latteView.visibility.raiseOnDesktop = checked
+                        latteView.visibility.raiseOnDesktop = !latteView.visibility.raiseOnDesktop;
                     }
                 }
 
                 LatteComponents.CheckBox {
                     Layout.maximumWidth: dialog.optionsWidth
                     text: i18n("Raise on activity change")
-                    checked: latteView.visibility.raiseOnActivity
+                    value: latteView.visibility.raiseOnActivity
 
                     onClicked: {
-                        latteView.visibility.raiseOnActivity = checked
+                        latteView.visibility.raiseOnActivity = !latteView.visibility.raiseOnActivity;
                     }
                 }
             }

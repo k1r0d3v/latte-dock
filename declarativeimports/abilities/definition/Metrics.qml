@@ -34,8 +34,8 @@ Item {
     }
 
     property MetricsTypes.Padding padding: MetricsTypes.Padding{
-        length: 4
-        lengthApplet: 4
+        length: 0
+        lengthApplet: 0
     }
 
     property MetricsTypes.Totals totals: MetricsTypes.Totals{
@@ -68,6 +68,9 @@ Item {
             maxNormalForItems: 48
             maxMediumForItems: 48
             maxZoomedForItems: 48
+
+            maxNormalForItemsWithoutScreenEdge: 48
+            maxZoomedForItemsWithoutScreenEdge: 48
         }
     }
 }
