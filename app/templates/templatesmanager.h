@@ -22,8 +22,11 @@
 
 // local
 #include "../lattecorona.h"
+#include "../data/appletdata.h"
 #include "../data/layoutdata.h"
 #include "../data/layoutstable.h"
+#include "../data/genericdata.h"
+#include "../data/generictable.h"
 
 // Qt
 #include <QObject>
@@ -33,6 +36,7 @@
 
 namespace Latte {
 class Corona;
+class View;
 }
 
 namespace Latte {
@@ -52,25 +56,49 @@ public:
     Latte::Corona *corona();
     void init();
 
+    bool layoutTemplateExists(const QString &templateName) const;
+    bool viewTemplateExists(const QString &templateName) const;
+
+    bool exportTemplate(const QString &originFile, const QString &destinationFile, const Data::AppletsTable &approvedApplets);
+    bool exportTemplate(const Latte::View *view, const QString &destinationFile, const Data::AppletsTable &approvedApplets);
+
     Data::Layout layoutTemplateForName(const QString &layoutName);
 
     Data::LayoutsTable systemLayoutTemplates();
+    Data::GenericTable<Data::Generic> viewTemplates();
 
     //! creates a new layout with layoutName based on specific layout template and returns the new layout path
     QString newLayout(QString layoutName, QString layoutTemplate = i18n(DEFAULTLAYOUTTEMPLATENAME));
+
+    QString proposedTemplateAbsolutePath(QString templateFilename);
 
     void importSystemLayouts();
 
 signals:
     void newLayoutAdded(const QString &path);
+    void layoutTemplatesChanged();
+    void viewTemplatesChanged();
+
+private slots:
+    void onCustomTemplatesCountChanged(const QString &file);
 
 private:
+    void initLayoutTemplates();
+    void initViewTemplates();
+
+    void initLayoutTemplates(const QString &path);
+    void initViewTemplates(const QString &path);
+
     void exposeTranslatedTemplateNames();
+
+    QString uniqueLayoutTemplateName(QString name) const;
+    QString uniqueViewTemplateName(QString name) const;
 
 private:
     Latte::Corona *m_corona;
 
     Data::LayoutsTable m_layoutTemplates;
+    Data::GenericTable<Data::Generic> m_viewTemplates;
 
 };
 

@@ -27,18 +27,18 @@ import org.kde.latte.core 0.2 as LatteCore
 ///item's added Animation
 SequentialAnimation{
     id:showWindowAnimation
-    property int speed: taskItem.animations.newWindowSlidingEnabled ? (1.2 * taskItem.animations.speedFactor.normal * taskItem.animations.duration.large) : 0
+    property int speed: root.newWindowSlidingEnabled ? (1.2 * taskItem.abilities.animations.speedFactor.normal * taskItem.abilities.animations.duration.large) : 0
     property bool animationSent: false
 
     readonly property string needLengthEvent: showWindowAnimation + "_showwindow"
 
     //Ghost animation that acts as a delayer, in order to fix #342
     PropertyAnimation {
-        target: wrapper
+        target: taskItem.parabolicItem
         property: "opacity"
         to: 0
         //it is not depend to durationTime when animations are active
-        duration: taskItem.animations.newWindowSlidingEnabled ? 750 : 0
+        duration: root.newWindowSlidingEnabled ? 750 : 0
         easing.type: Easing.InQuad
     }
     //end of ghost animation
@@ -47,14 +47,14 @@ SequentialAnimation{
         script:{
             if (!showWindowAnimation.animationSent) {
                 showWindowAnimation.animationSent = true;
-                taskItem.animations.needLength.addEvent(needLengthEvent);
+                taskItem.abilities.animations.needLength.addEvent(needLengthEvent);
             }
         }
     }
 
     PropertyAnimation {
-        target: wrapper
-        property: (icList.orientation == Qt.Vertical) ? "tempScaleHeight" : "tempScaleWidth"
+        target: taskItem.parabolicItem
+        property: "zoomLength"
         to: 1
         duration: showWindowAnimation.speed
         easing.type: Easing.OutQuad
@@ -63,8 +63,8 @@ SequentialAnimation{
     ParallelAnimation{
 
         PropertyAnimation {
-            target: wrapper
-            property: (icList.orientation == Qt.Vertical) ? "tempScaleWidth" : "tempScaleHeight"
+            target: taskItem.parabolicItem
+            property: "zoomThickness"
             to: 1
             duration: showWindowAnimation.speed
             easing.type: Easing.OutQuad
@@ -72,7 +72,7 @@ SequentialAnimation{
 
 
         PropertyAnimation {
-            target: wrapper
+            target: taskItem.parabolicItem
             property: "opacity"
             from: 0
             to: 1
@@ -97,7 +97,7 @@ SequentialAnimation{
         taskItem.inAnimation = false;
 
         if (showWindowAnimation.animationSent) {
-            taskItem.animations.needLength.removeEvent(needLengthEvent);
+            taskItem.abilities.animations.needLength.removeEvent(needLengthEvent);
             showWindowAnimation.animationSent = false;
         }
     }
@@ -124,7 +124,7 @@ SequentialAnimation{
 
         //Animation Add/Remove (2) - when is window with no launcher, animations enabled
         //Animation Add/Remove (3) - when is launcher with no window, animations enabled
-        var animation2 = ((!hasShownLauncher || !tasksModel.launcherInCurrentActivity(taskItem.launcherUrl))
+        var animation2 = ((!hasShownLauncher || !taskItem.abilities.launchers.inCurrentActivity(taskItem.launcherUrl))
                           && taskItem.isWindow
                           && LatteCore.WindowSystem.compositingActive);
 
@@ -140,7 +140,7 @@ SequentialAnimation{
 
 
         //startup without launcher, animation should be blocked
-        var launcherExists = !(!hasShownLauncher || !tasksModel.launcherInCurrentActivity(taskItem.launcherUrl));
+        var launcherExists = !(!hasShownLauncher || !taskItem.abilities.launchers.inCurrentActivity(taskItem.launcherUrl));
 
         //var hideStartup =  launcherExists && taskItem.isStartup; //! fix #976
         var hideWindow =  (root.showWindowsOnlyFromLaunchers || root.disableAllWindowsFunctionality) && !launcherExists && taskItem.isWindow;
@@ -153,41 +153,41 @@ SequentialAnimation{
         if (hideWindow) {
             isForcedHidden = true;
             taskItem.visible = false;
-            wrapper.tempScaleWidth = 0;
-            wrapper.tempScaleHeight = 0;
-            wrapper.opacity = 0;
+            taskItem.parabolicItem.zoomLength = 0.0;
+            taskItem.parabolicItem.zoomThickness = 0.0;
+            taskItem.parabolicItem.opacity = 0;
             taskItem.inAnimation = false;
         } else if (!LatteCore.WindowSystem.compositingActive || root.inDraggingPhase
                    || taskItem.isSeparator) {
             isForcedHidden = false;
             taskItem.visible = true;
-            wrapper.tempScaleWidth = 1;
-            wrapper.tempScaleHeight = 1;
-            wrapper.mScale = 1;
-            wrapper.opacity = 1;
+            taskItem.parabolicItem.zoomLength = 1.0;
+            taskItem.parabolicItem.zoomThickness = 1.0;
+            taskItem.parabolicItem.zoom = 1;
+            taskItem.parabolicItem.opacity = 1;
             taskItem.inAnimation = false;
         } else if (( animation2 || animation3 || animation6 || isForcedHidden)
-                   && (taskItem.animations.speedFactor.current !== 0) && !launcherIsAlreadyShown){
+                   && (taskItem.abilities.animations.speedFactor.current !== 0) && !launcherIsAlreadyShown){
             isForcedHidden = false;
             taskItem.visible = true;
-            wrapper.tempScaleWidth = 0;
-            wrapper.tempScaleHeight = 0;
+            taskItem.parabolicItem.zoomLength = 0.0;
+            taskItem.parabolicItem.zoomThickness = 0.0;
             start();
         } else {
             isForcedHidden = false;
             var frozenTask = tasksExtendedManager.getFrozenTask(taskItem.launcherUrl);
 
-            if (frozenTask && frozenTask.mScale>1) {
-                wrapper.mScale = frozenTask.mScale;
+            if (frozenTask && frozenTask.zoom>1) {
+                taskItem.parabolicItem.zoom = frozenTask.zoom;
                 tasksExtendedManager.removeFrozenTask(taskItem.launcherUrl);
             } else {
-                wrapper.tempScaleWidth = 1;
-                wrapper.tempScaleHeight = 1;
+                taskItem.parabolicItem.zoomLength = 1.0;
+                taskItem.parabolicItem.zoomThickness = 1.0;
             }
 
             //! by enabling it we break the bouncing animation
             //taskItem.visible = true;
-            wrapper.opacity = 1;
+            taskItem.parabolicItem.opacity = 1;
             taskItem.inAnimation = false;
         }
     }
@@ -200,7 +200,7 @@ SequentialAnimation{
         if (animationSent){
             //console.log("SAFETY REMOVAL 2: animation removing ended");
             animationSent = false;
-            taskItem.animations.needLength.removeEvent(needLengthEvent);
+            taskItem.abilities.animations.needLength.removeEvent(needLengthEvent);
         }
     }
 }

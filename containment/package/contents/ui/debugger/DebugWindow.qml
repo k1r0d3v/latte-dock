@@ -554,11 +554,11 @@ Window{
             }
 
             Text{
-                text: "Background Transparency"+space
+                text: "Background Opacity"+space
             }
 
             Text{
-                text: root.panelTransparency + "%"
+                text: (root.myView.backgroundOpacity * 100) + "%"
             }
 
             Text{
@@ -611,7 +611,7 @@ Window{
             }
 
             Text{
-                text: visibilityManager.panelIsBiggerFromIconSize
+                text: background.isGreaterThanItemThickness
             }
 
             Text{
@@ -657,19 +657,11 @@ Window{
             }
 
             Text{
-                text: "Task Hovered"+space
-            }
-
-            Text{
-                text: "--"//root.latteAppletHoveredIndex
-            }
-
-            Text{
                 text: "In Normal State"+space
             }
 
             Text{
-                text: visibilityManager.normalState
+                text: visibilityManager.inNormalState
             }
 
             Text{

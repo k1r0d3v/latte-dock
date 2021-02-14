@@ -24,7 +24,7 @@ import org.kde.plasma.plasmoid 2.0
 SequentialAnimation{
     //Ghost animation that acts as a delayer
     PropertyAnimation {
-        target: wrapper
+        target: taskItem.parabolicItem
         property: "opacity"
         to: 1
         duration:  50
@@ -34,16 +34,16 @@ SequentialAnimation{
 
     ParallelAnimation{
         PropertyAnimation {
-            target: wrapper
-            property: (icList.orientation == Qt.Vertical) ? "tempScaleWidth" : "tempScaleHeight"
-            to: taskItem.containsMouse ? 1+2*(taskItem.parabolic.factor.maxZoom-1) : 1 + (1.5 * (taskItem.parabolic.factor.maxZoom-1))
+            target: taskItem.parabolicItem
+            property: "zoomThickness"
+            to: taskItem.containsMouse ? 1+2*(taskItem.abilities.parabolic.factor.maxZoom-1) : 1 + (1.5 * (taskItem.abilities.parabolic.factor.maxZoom-1))
             duration: launcherAnimation.speed
             easing.type: Easing.OutQuad
         }
 
         PropertyAnimation {
-            target: wrapper
-            property: (icList.orientation == Qt.Horizontal) ? "tempScaleWidth" : "tempScaleHeight"
+            target: taskItem.parabolicItem
+            property: "zoomLength"
             to: 1
             duration: launcherAnimation.speed
             easing.type: Easing.OutQuad
@@ -51,8 +51,8 @@ SequentialAnimation{
     }
 
     PropertyAnimation {
-        target: wrapper
-        property: (icList.orientation === Qt.Vertical) ? "tempScaleWidth" : "tempScaleHeight"
+        target: taskItem.parabolicItem
+        property: "zoomThickness"
         to: 1
         duration: 4*launcherAnimation.speed
         easing.type: Easing.OutBounce
@@ -60,18 +60,18 @@ SequentialAnimation{
 
     ParallelAnimation{
         PropertyAnimation {
-            target: wrapper
-            property: (icList.orientation === Qt.Vertical) ? "tempScaleHeight" : "tempScaleWidth"
+            target: taskItem.parabolicItem
+            property: "zoomLength"
             to: 1
-            duration: taskItem.animations.speedFactor.current*launcherAnimation.speed
+            duration: taskItem.abilities.animations.speedFactor.current*launcherAnimation.speed
             easing.type: Easing.OutBounce
         }
 
         PropertyAnimation {
-            target: wrapper
-            property: "mScale"
+            target: taskItem.parabolicItem
+            property: "zoom"
             to: 1
-            duration: taskItem.animations.speedFactor.current*launcherAnimation.speed
+            duration: taskItem.abilities.animations.speedFactor.current*launcherAnimation.speed
             easing.type: Easing.OutQuad
         }
     }

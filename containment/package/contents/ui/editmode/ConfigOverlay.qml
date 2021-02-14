@@ -31,7 +31,6 @@ import org.kde.latte.core 0.2 as LatteCore
 
 MouseArea {
     id: configurationArea
-
     z: 1000
 
     width: plasmoid.formFactor === PlasmaCore.Types.Horizontal ? root.width : thickness
@@ -41,7 +40,6 @@ MouseArea {
     hoverEnabled: root.inConfigureAppletsMode
 
     focus: true
-
     cursorShape: {
         if (currentApplet && tooltip.visible && currentApplet.latteStyleApplet) {
             return root.isHorizontal ? Qt.SizeHorCursor : Qt.SizeVerCursor;
@@ -77,14 +75,8 @@ MouseArea {
 
     function hoveredItem(x, y) {
         //! main layout
-        var relevantLayout;
-        var item;
-
-        if (!item) {
-            // main layout
-            relevantLayout = mapFromItem(layoutsContainer.mainLayout, 0, 0);
-            item = layoutsContainer.mainLayout.childAt(x-relevantLayout.x, y-relevantLayout.y);
-        }
+        var relevantLayout = mapFromItem(layoutsContainer.mainLayout, 0, 0);
+        var item = layoutsContainer.mainLayout.childAt(x-relevantLayout.x, y-relevantLayout.y);
 
         if (!item) {
             // start layout
@@ -150,12 +142,12 @@ MouseArea {
 
             //! ignore thicknes moving at all cases
             if (plasmoid.formFactor === PlasmaCore.Types.Horizontal) {
-                mousesink.y = 0;
+                mousesink.y = configurationArea.height / 2;
             } else {
-                mousesink.x = 0;
+                mousesink.x = configurationArea.width / 2;
             }
 
-            var item =  hoveredItem(mousesink.x, mousesink.y);
+            var item = hoveredItem(mousesink.x, mousesink.y);
 
             if (item && item !== placeHolder) {
                 placeHolder.parent = configurationArea;
@@ -273,7 +265,7 @@ MouseArea {
         //    handle.height = currentApplet.height;
         root.layoutManagerSave();
 
-        if (root.panelAlignment === LatteCore.Types.Justify) {
+        if (root.myView.alignment === LatteCore.Types.Justify) {
             root.moveAppletsBasedOnJustifyAlignment();
         }
 
@@ -416,12 +408,12 @@ MouseArea {
                 height: width
                 anchors.centerIn: parent
                 opacity: 0.9
-                layer.enabled: graphicsSystem.isAccelerated
+                layer.enabled: root.environment.isGraphicsSystemAccelerated
                 layer.effect: DropShadow {
-                    radius: root.appShadowSize
+                    radius: root.myView.itemShadow.size
                     fast: true
                     samples: 2 * radius
-                    color: root.appShadowColor
+                    color: root.myView.itemShadow.shadowColor
 
                     verticalOffset: 2
                 }
@@ -512,11 +504,13 @@ MouseArea {
             if (visualParent && currentApplet
                     && (currentApplet.applet || currentApplet.isSeparator || currentApplet.isInternalViewSplitter)) {
 
-                configureButton.visible = !currentApplet.isInternalViewSplitter && (currentApplet.applet.pluginName !== root.plasmoidName)
-                        && currentApplet.applet.action("configure") && currentApplet.applet.action("configure").enabled;
+                configureButton.visible = !currentApplet.isInternalViewSplitter
+                        && (currentApplet.applet.pluginName !== "org.kde.latte.plasmoid")
+                        && currentApplet.applet.action("configure")
+                        && currentApplet.applet.action("configure").enabled;
                 closeButton.visible = !currentApplet.isInternalViewSplitter && currentApplet.applet.action("remove") && currentApplet.applet.action("remove").enabled;
                 lockButton.visible = !currentApplet.isInternalViewSplitter
-                        && (currentApplet.applet.pluginName !== root.plasmoidName)
+                        && !currentApplet.communicator.indexerIsSupported
                         && !currentApplet.isSeparator;
 
                 colorizingButton.visible = root.colorizerEnabled && !currentApplet.appletBlocksColorizing && !currentApplet.isInternalViewSplitter;

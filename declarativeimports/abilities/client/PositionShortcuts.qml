@@ -1,5 +1,5 @@
 /*
-*  Copyright 2020 Michail Vourlakos <mvourlakos@gmail.com>
+*  Copyright 2021 Michail Vourlakos <mvourlakos@gmail.com>
 *
 *  This file is part of Latte-Dock
 *
@@ -24,10 +24,14 @@ import org.kde.latte.abilities.definition 0.1 as AbilityDefinition
 AbilityDefinition.PositionShortcuts {
     id: shortcuts
     property Item bridge: null
-    readonly property bool isActive: bridge !== null
+    property Item indexer: null
+
+    badges: ref.shortcuts.badges
+    showPositionShortcutBadges: ref.shortcuts.showPositionShortcutBadges
 
     property bool isStealingGlobalPositionShortcuts: false
-    readonly property bool showPositionShortcutBadges: ref.shortcuts.showPositionShortcutBadges
+
+    readonly property bool isActive: bridge !== null
 
     readonly property bool isEnabled: {
         if (bridge) {
@@ -39,6 +43,8 @@ AbilityDefinition.PositionShortcuts {
     }
 
     signal disabledIsStealingGlobalPositionShortcuts();
+
+    readonly property AbilityDefinition.PositionShortcuts local: AbilityDefinition.PositionShortcuts {}
 
     Item {
         id: ref
@@ -61,6 +67,17 @@ AbilityDefinition.PositionShortcuts {
         if (isActive) {
             bridge.shortcuts.client = null;
         }
+    }
+
+    function shortcutIndex(entryIndex) {
+        if (!bridge || bridge.shortcuts.host.unifiedGlobalShortcuts) {
+            return indexer.visibleIndex(entryIndex);
+        }
+
+        var base = bridge.indexer.host.visibleIndex(bridge.shortcuts.appletIndex);
+
+        //!visible indexes start counting from 1
+        return (indexer.visibleIndex(entryIndex) - base + 1);
     }
 }
 

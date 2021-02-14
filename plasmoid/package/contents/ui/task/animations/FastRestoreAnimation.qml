@@ -37,24 +37,24 @@ SequentialAnimation{
 
     ParallelAnimation {
         PropertyAnimation {
-            target: wrapper
-            property: "mScale"
+            target: taskItem.parabolicItem
+            property: "zoom"
             to: 1
             duration: fastRestoreAnimation.speed
             easing.type: Easing.InCubic
         }
 
         PropertyAnimation {
-            target: wrapper
-            property: "tempScaleWidth"
+            target: taskItem.parabolicItem
+            property: "zoomLength"
             to: 1
             duration: fastRestoreAnimation.speed
             easing.type: Easing.InCubic
         }
 
         PropertyAnimation {
-            target: wrapper
-            property: "tempScaleHeight"
+            target: taskItem.parabolicItem
+            property: "zoomThickness"
             to: 1
             duration: fastRestoreAnimation.speed
             easing.type: Easing.InCubic
@@ -62,20 +62,9 @@ SequentialAnimation{
     }
 
     onStopped: {
-        /*if (!taskItem.containsMouse && !parabolicManager.neighbourIsHovered(itemIndex)) {
-            taskItem.inMimicParabolicAnimation = false;
-        } else {
-            taskItem.inMimicParabolicAnimation = true;
-        }*/
-
         newWindowAnimation.stop();
 
-        //if (!taskItem.containsMouse && !parabolicManager.neighbourIsHovered(itemIndex)) {
         taskItem.inBlockingAnimation = false;
-        //}
-
-        root.mimicEnterForParabolic();
-
         taskItem.inFastRestoreAnimation = false;
         // console.log("Fast Restore Animation ended...");
     }

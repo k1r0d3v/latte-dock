@@ -36,12 +36,13 @@ Item{
     width: root.isHorizontal ? length : thickness
     height: root.isHorizontal ? thickness : length
 
-    readonly property int length: {
+    readonly property real length: {
         if (appletItem.isInternalViewSplitter) {
             if (!root.inConfigureAppletsMode) {
                 return 0;
-            } else if (appletItem.inConfigureAppletsDragging || !appletItem.isFillSplitter){
-                return appletMinimumLength; // /* /*(lengthAppletPadding + metrics.margin.length)*2*/
+            } else {
+                return appletItem.inConfigureAppletsDragging && (root.dragOverlay.currentApplet === appletItem || !root.dragOverlay.currentApplet.isInternalViewSplitter)?
+                            appletMinimumLength : internalSplitterComputedLength;
             }
         }
 
@@ -64,7 +65,7 @@ Item{
         return root.inConfigureAppletsMode ? Math.max(Math.min(appletItem.metrics.iconSize, root.minAppletLengthInConfigure), scaledLength) : scaledLength;
     }
 
-    readonly property int thickness: {
+    readonly property real thickness: {
         if (appletItem.isInternalViewSplitter && !root.inConfigureAppletsMode) {
             return 0;
         }
@@ -72,27 +73,27 @@ Item{
         return communicator.parabolicEffectIsSupported ? appletPreferredThickness : scaledThickness + appletItem.metrics.margin.screenEdge;
     }
 
-    opacity: appletColorizer.mustBeShown && graphicsSystem.isAccelerated ? 0 : 1
+    opacity: appletColorizer.mustBeShown && appletItem.environment.isGraphicsSystemAccelerated ? 0 : 1
 
     property bool disableLengthScale: false
     property bool disableThicknessScale: false
 
     property bool editMode: root.inConfigureAppletsMode
 
-    property int appletWidth: applet ?  applet.width : -1
-    property int appletHeight: applet ?  applet.height : -1
+    property real appletWidth: applet ?  applet.width : -1
+    property real appletHeight: applet ?  applet.height : -1
 
-    property int appletMinimumWidth: applet && applet.Layout ?  applet.Layout.minimumWidth : -1
-    property int appletMinimumHeight: applet && applet.Layout ? applet.Layout.minimumHeight : -1
+    property real appletMinimumWidth: applet && applet.Layout ?  applet.Layout.minimumWidth : -1
+    property real appletMinimumHeight: applet && applet.Layout ? applet.Layout.minimumHeight : -1
 
-    property int appletPreferredWidth: applet && applet.Layout ?  applet.Layout.preferredWidth : -1
+    property real appletPreferredWidth: applet && applet.Layout ?  applet.Layout.preferredWidth : -1
     property int appletPreferredHeight: applet && applet.Layout ?  applet.Layout.preferredHeight : -1
 
-    property int appletMaximumWidth: applet && applet.Layout ?  applet.Layout.maximumWidth : -1
-    property int appletMaximumHeight: applet && applet.Layout ?  applet.Layout.maximumHeight : -1
+    property real appletMaximumWidth: applet && applet.Layout ?  applet.Layout.maximumWidth : -1
+    property real appletMaximumHeight: applet && applet.Layout ?  applet.Layout.maximumHeight : -1
 
-    readonly property int appletLength: root.isHorizontal ? appletWidth : appletHeight
-    readonly property int appletThickness: root.isHorizontal ? appletHeight : appletWidth
+    readonly property real appletLength: root.isHorizontal ? appletWidth : appletHeight
+    readonly property real appletThickness: root.isHorizontal ? appletHeight : appletWidth
 
     readonly property int appletMinimumLength : {
         if (isInternalViewSplitter) {
@@ -102,24 +103,24 @@ Item{
         return root.isHorizontal ? appletMinimumWidth : appletMinimumHeight
     }
 
-    readonly property int appletPreferredLength: {
+    readonly property real appletPreferredLength: {
         if (isInternalViewSplitter) {
-            return appletItem.isFillSplitter ? Infinity : appletMinimumLength;
+            return appletMinimumLength;
         }
         return root.isHorizontal ? appletPreferredWidth : appletPreferredHeight;
     }
 
-    readonly property int appletMaximumLength: {
+    readonly property real appletMaximumLength: {
         if (isInternalViewSplitter) {
-            return isFillSplitter ? (root.isHorizontal ? root.width : root.height) : appletMinimumLength;
+            return Infinity;
         }
 
         root.isHorizontal ? appletMaximumWidth : appletMaximumHeight;
     }
 
-    readonly property int appletMinimumThickness: root.isHorizontal ? appletMinimumHeight : appletMinimumWidth
-    readonly property int appletPreferredThickness: root.isHorizontal ? appletPreferredHeight : appletPreferredWidth
-    readonly property int appletMaximumThickness: root.isHorizontal ? appletMaximumHeight : appletMaximumWidth
+    readonly property real appletMinimumThickness: root.isHorizontal ? appletMinimumHeight : appletMinimumWidth
+    readonly property real appletPreferredThickness: root.isHorizontal ? appletPreferredHeight : appletPreferredWidth
+    readonly property real appletMaximumThickness: root.isHorizontal ? appletMaximumHeight : appletMaximumWidth
 
     property int iconSize: appletItem.metrics.iconSize
 
@@ -128,6 +129,7 @@ Item{
 
     property int localLengthMargins: isSeparator
                                      || !communicator.requires.lengthMarginsEnabled
+                                     || communicator.indexerIsSupported
                                      || isInternalViewSplitter
                                         ? 0 : appletItem.lengthAppletFullMargins
 
@@ -136,8 +138,8 @@ Item{
     property real zoomScaleLength: disableLengthScale ? 1 : zoomScale
     property real zoomScaleThickness: disableThicknessScale ? 1 : zoomScale
 
-    property int layoutLength: 0
-    property int layoutThickness: 0
+    property real layoutLength: 0
+    property real layoutThickness: 0
 
     property real zoomScale: 1
 
@@ -149,8 +151,32 @@ Item{
 
     property Item wrapperContainer: _wrapperContainer
     property Item clickedEffect: _clickedEffect
-    property Item containerForOverlayIcon: _containerForOverlayIcon
     property Item overlayIconLoader: _overlayIconLoader
+
+    readonly property int internalSplitterComputedLength: {
+        if (!appletItem.isInternalViewSplitter) {
+            return 0;
+        }
+
+        var parentLayoutLength = 0;
+        var parentTwinLayoutLength = 0;
+
+        if (appletItem.parent === layoutsContainer.startLayout) {
+            parentLayoutLength = appletItem.layouter.startLayout.lengthWithoutSplitters;
+            parentTwinLayoutLength = appletItem.layouter.endLayout.lengthWithoutSplitters;
+        } else if (appletItem.parent === layoutsContainer.endLayout) {
+            parentLayoutLength = appletItem.layouter.endLayout.lengthWithoutSplitters;
+            parentTwinLayoutLength = appletItem.layouter.startLayout.lengthWithoutSplitters;
+        } else {
+            return 0;
+        }
+
+        var parentLayoutCenter = (appletItem.layouter.maxLength - layoutsContainer.mainLayout.length)/2;
+        var twinLayoutExceededCenter = Math.max(0, (parentTwinLayoutLength + root.maxJustifySplitterSize) - parentLayoutCenter);
+        var availableLength = Math.max(0, parentLayoutCenter - twinLayoutExceededCenter);
+
+        return Math.max(root.maxJustifySplitterSize, availableLength - parentLayoutLength);
+    }
 
     Behavior on opacity {
         NumberAnimation {
@@ -285,7 +311,7 @@ Item{
     Binding {
         target: wrapper
         property: "disableLengthScale"
-        when: latteView && !(appletItem.isAutoFillApplet || appletItem.isLattePlasmoid)
+        when: latteView && !(appletItem.isAutoFillApplet || appletItem.indexerIsSupported)
         value: {
             var blockParabolicEffectInLength = false;
 
@@ -333,12 +359,88 @@ Item{
         }
     }
 
+    //! Applet Highlight when requested
+    Loader {
+        id: visualIndicator
+        anchors.fill: parent
+        active: showVisualIndicatorRequested
+
+        property bool showVisualIndicatorRequested: false
+
+        Connections {
+            target: root.latteView ? root.latteView.extendedInterface : null
+            onAppletRequestedVisualIndicator: {
+                if (plasmoidId === appletItem.applet.id) {
+                    visualIndicator.showVisualIndicatorRequested = true;
+                }
+            }
+        }
+
+        sourceComponent: PlasmaComponents.Highlight {
+            id: visualIndicatorRectangle
+            opacity: 0
+
+            Component.onCompleted: showVisualIndicatorAnimation.running = true;
+
+            SequentialAnimation{
+                id: showVisualIndicatorAnimation
+                alwaysRunToEnd: true
+
+                PropertyAnimation {
+                    target: visualIndicatorRectangle
+                    property: "opacity"
+                    to: 1
+                    duration: 3*appletItem.animations.duration.large
+                    easing.type: Easing.OutQuad
+                }
+
+                PauseAnimation {
+                    duration: 1500
+                }
+
+                PropertyAnimation {
+                    target: visualIndicatorRectangle
+                    property: "opacity"
+                    to: 0
+                    duration: 3*appletItem.animations.duration.large
+                    easing.type: Easing.OutQuad
+                }
+
+                ScriptAction {
+                    script: {
+                        visualIndicator.showVisualIndicatorRequested = false;
+                    }
+                }
+            }
+        }
+    }
+
+    ///Shadow in applets
+    Loader{
+        id: appletShadow
+        anchors.fill: _wrapperContainer
+
+        active: appletItem.applet
+                && appletItem.environment.isGraphicsSystemAccelerated
+                && !appletColorizer.mustBeShown
+                && (appletItem.myView.itemShadow.isEnabled && !appletItem.communicator.indexerIsSupported)
+
+        sourceComponent: DropShadow{
+            anchors.fill: parent
+            color: appletItem.myView.itemShadow.shadowColor
+            fast: true
+            samples: 2 * radius
+            source: _wrapperContainer
+            radius: appletItem.myView.itemShadow.size
+            verticalOffset: root.forceTransparentPanel || root.forcePanelForBusyBackground ? 0 : 2
+        }
+    }
+
     //! Applet Main Container
     Item{
         id:_wrapperContainer
         width: root.isHorizontal ? _length : _thickness
         height: root.isHorizontal ? _thickness : _length
-        opacity: appletShadow.active ? 0 : 1
 
         property int _length:0 // through Binding to avoid binding loops
         property int _thickness:0 // through Binding to avoid binding loops
@@ -386,18 +488,21 @@ Item{
             }
         }
 
-        Item{
-            id: _containerForOverlayIcon
-            anchors.fill: parent
-        }
-
         Loader{
             id: _overlayIconLoader
             anchors.fill: parent
-            active: communicator.appletMainIconIsFound
+            active: communicator.appletMainIconIsFound && indicators.info.needsIconColors
 
-            property color backgroundColor: "black"
-            property color glowColor: "white"
+            property color backgroundColor: "transparent"
+            property color glowColor: "transparent"
+
+            readonly property bool isIconItemVisible: communicator.appletIconItem && communicator.appletIconItem.visible
+
+            onIsIconItemVisibleChanged: {
+                if (isIconItemVisible) {
+                    communicator.appletIconItem.roundToIconSize = false;
+                }
+            }
 
             sourceComponent: LatteCore.IconItem{
                 id: overlayIconItem
@@ -405,16 +510,16 @@ Item{
                 visible: false
 
                 source: {
-                    if (communicator.appletIconItem && communicator.appletIconItem.visible) {
+                    if (communicator.appletIconItem) {
                         return communicator.appletIconItem.source;
-                    } else if (communicator.appletImageItem && communicator.appletImageItem.visible) {
+                    } else if (communicator.appletImageItem) {
                         return communicator.appletImageItem.source;
                     }
 
                     return "";
                 }
 
-                providesColors: indicators.info.needsIconColors && source != ""
+                providesColors: source != ""
                 usesPlasmaTheme: communicator.appletIconItem && communicator.appletIconItem.visible ? communicator.appletIconItem.usesPlasmaTheme : false
 
                 Binding{
@@ -510,7 +615,6 @@ Item{
     }
 
     //! EventsSink
-
     Loader {
         id: eventsSinkLoader
         anchors.fill: _wrapperContainer
@@ -550,39 +654,6 @@ Item{
         }
     }
 
-    ///Shadow in applets
-    Loader{
-        id: appletShadow
-        anchors.fill: appletItem.appletWrapper
-
-        active: appletItem.applet
-                && graphicsSystem.isAccelerated
-                && !appletColorizer.mustBeShown
-                && (root.enableShadows && applet.pluginName !== root.plasmoidName)
-
-        onActiveChanged: {
-            if (active && !isSeparator && graphicsSystem.isAccelerated) {
-                wrapperContainer.opacity = 0;
-            } else {
-                wrapperContainer.opacity = 1;
-            }
-        }
-
-        opacity: isSeparator ? 0.4 : 1
-
-        sourceComponent: DropShadow{
-            anchors.fill: parent
-            color: root.appShadowColor //"#ff080808"
-            fast: true
-            samples: 2 * radius
-            source: appletItem.applet
-            radius: shadowSize
-            verticalOffset: root.forceTransparentPanel || root.forcePanelForBusyBackground ? 0 : 2
-
-            property int shadowSize : root.appShadowSize
-        }
-    }
-
     BrightnessContrast {
         id: _clickedEffect
         anchors.fill: _wrapperContainer
@@ -590,18 +661,6 @@ Item{
 
         visible: clickedAnimation.running && !indicators.info.providesClickedAnimation
     }
-
-    /*   onHeightChanged: {
-        if ((index == 1)|| (index==3)){
-            console.log("H: "+index+" ("+zoomScale+"). "+currentLayout.children[1].height+" - "+currentLayout.children[3].height+" - "+(currentLayout.children[1].height+currentLayout.children[3].height));
-        }
-    }
-
-    onZoomScaleChanged:{
-        if ((index == 1)|| (index==3)){
-            console.log(index+" ("+zoomScale+"). "+currentLayout.children[1].height+" - "+currentLayout.children[3].height+" - "+(currentLayout.children[1].height+currentLayout.children[3].height));
-        }
-    }*/
 
     Loader{
         anchors.fill: parent

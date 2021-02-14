@@ -24,6 +24,8 @@ import QtGraphicalEffects 1.0
 import org.kde.plasma.plasmoid 2.0
 import org.kde.plasma.core 2.0 as PlasmaCore
 
+import org.kde.kirigami 2.0 as Kirigami
+
 import org.kde.latte.core 0.2 as LatteCore
 
 /////Removing a Window from a group////
@@ -41,7 +43,7 @@ Item{
     }
 
     function removeTask(){
-        if(!taskIcon.toBeDestroyed && taskItem.animations.windowRemovedFromGroupEnabled){
+        if(!taskIconContainer.toBeDestroyed && root.windowRemovedFromGroupEnabled){
             removingAnimation.init();
         }
     }
@@ -62,15 +64,32 @@ Item{
             id: removeTask
             width: taskIcon.width
             height: taskIcon.height
-
             visible: false
 
-            LatteCore.IconItem{
+            //! Shadow
+            Loader{
+                id: tempTaskShadow
+                anchors.fill: tempRemoveIcon
+                active: taskItem.abilities.myView.itemShadow.isEnabled
+                        && taskItem.abilities.environment.isGraphicsSystemAccelerated
+
+                sourceComponent: DropShadow{
+                    anchors.fill: parent
+                    color: "#ff080808"
+                    fast: true
+                    samples: 2 * radius
+                    source: tempRemoveIcon
+                    radius: taskItem.abilities.myView.itemShadow.size
+                    verticalOffset: 2
+                }
+            }
+
+            Kirigami.Icon{
                 id: tempRemoveIcon
-                anchors.rightMargin: root.location === PlasmaCore.Types.LeftEdge ? taskItem.metrics.margin.thickness : 0
-                anchors.leftMargin: root.location === PlasmaCore.Types.RightEdge ? taskItem.metrics.margin.thickness : 0
-                anchors.topMargin: root.location === PlasmaCore.Types.BottomEdge ? taskItem.metrics.margin.thickness : 0
-                anchors.bottomMargin: root.location === PlasmaCore.Types.TopEdge ? taskItem.metrics.margin.thickness : 0
+                anchors.rightMargin: root.location === PlasmaCore.Types.LeftEdge ? taskItem.abilities.metrics.margin.thickness : 0
+                anchors.leftMargin: root.location === PlasmaCore.Types.RightEdge ? taskItem.abilities.metrics.margin.thickness : 0
+                anchors.topMargin: root.location === PlasmaCore.Types.BottomEdge ? taskItem.abilities.metrics.margin.thickness : 0
+                anchors.bottomMargin: root.location === PlasmaCore.Types.TopEdge ? taskItem.abilities.metrics.margin.thickness : 0
 
                 anchors.horizontalCenter: !root.vertical ? parent.horizontalCenter : undefined;
                 anchors.verticalCenter: root.vertical ? parent.verticalCenter : undefined;
@@ -79,28 +98,13 @@ Item{
                 anchors.top: root.location === PlasmaCore.Types.BottomEdge ? parent.top : undefined;
                 anchors.bottom: root.location === PlasmaCore.Types.TopEdge ? parent.bottom : undefined;
 
-                width: iconImageBuffer.width
+                width: taskIconItem.width
                 height: width
-                visible: root.enableShadows ? false : true
 
-                source: iconImageBuffer.lastValidSourceName
+                source: taskIconItem.source
             }
 
-            Loader{
-                id: tempTaskShadow
-                anchors.fill: tempRemoveIcon
-                active: root.enableShadows && graphicsSystem.isAccelerated
 
-                sourceComponent: DropShadow{
-                    anchors.fill: parent
-                    color: "#ff080808"
-                    fast: true
-                    samples: 2 * radius
-                    source: tempRemoveIcon
-                    radius: taskIcon.shadowSize
-                    verticalOffset: 2
-                }
-            }
 
             Colorize{
                 source: tempRemoveIcon
@@ -114,7 +118,7 @@ Item{
             ParallelAnimation{
                 id: componentRemoveAnimation
 
-                property int speed: 2 * taskItem.animations.speedFactor.normal * taskItem.animations.duration.large
+                property int speed: 2 * taskItem.abilities.animations.speedFactor.normal * taskItem.abilities.animations.duration.large
                 property Item removingItem: parent
                 property int toPoint: 0
 
@@ -149,10 +153,10 @@ Item{
 
                 if( (root.location === PlasmaCore.Types.BottomEdge) ||
                         (root.location === PlasmaCore.Types.RightEdge) ){
-                    componentRemoveAnimation.toPoint = tempPoint + taskItem.metrics.iconSize;
+                    componentRemoveAnimation.toPoint = tempPoint + taskItem.abilities.metrics.iconSize;
                 }
                 else{
-                    componentRemoveAnimation.toPoint = tempPoint - taskItem.metrics.iconSize;
+                    componentRemoveAnimation.toPoint = tempPoint - taskItem.abilities.metrics.iconSize;
                 }
 
                 visible = true;

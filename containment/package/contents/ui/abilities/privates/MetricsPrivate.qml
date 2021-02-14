@@ -35,22 +35,28 @@ AbilityHost.Metrics {
 
     //! private properties to avoid too many not needed animation calculations
     readonly property int _iconSize: autosizeEnabled && autosize.iconSize > 0 ? Math.min(autosize.iconSize, maxIconSize) : maxIconSize
-    readonly property int _maxIconSize: portionIconSize!==-1 ? portionIconSize : plasmoid.configuration.iconSize
+    readonly property int _maxIconSize: {
+        //! round to nearest odd number
+        var storedIconSize = 2 * Math.round(plasmoid.configuration.iconSize / 2)
+
+        return portionIconSize!==-1 ? portionIconSize : storedIconSize;
+    }
 
     //! Private Properties
     readonly property int portionIconSize: { //icon size based on screen height
         if ((plasmoid.configuration.proportionIconSize===-1) || !latteView)
             return -1;
 
-        return Math.max(16,Math.round(latteView.screenGeometry.height * plasmoid.configuration.proportionIconSize/100));
+        var basedOnScreenHeight = Math.max(16,Math.round(latteView.screenGeometry.height * plasmoid.configuration.proportionIconSize/100))
+
+        //! round to nearest odd number
+        return 2 * Math.round(basedOnScreenHeight/2);
     }
 
     readonly property bool autosizeEnabled: autosize !== undefined && autosize.isActive
 
     readonly property MetricsPrivateTypes.Fraction fraction: MetricsPrivateTypes.Fraction{
-        thicknessMargin: root.shrinkThickMargins ? indicators.info.minThicknessPadding :
-                                                   Math.max(indicators.info.minThicknessPadding, plasmoid.configuration.thickMargin / 100)
-
+        thicknessMargin: Math.max(indicators.info.minThicknessPadding, plasmoid.configuration.thickMargin / 100)
         lengthMargin: plasmoid.configuration.lengthExtMargin / 100
         lengthPadding: indicators.isEnabled ? indicators.padding : 0
         lengthAppletPadding: indicators.infoLoaded ? indicators.info.appletLengthPadding : -1
@@ -72,7 +78,7 @@ AbilityHost.Metrics {
         }
 
         //! 45% of max shadow size in px.
-        var shadowMaxNeededMargin = 0.45 * root.appShadowSizeOriginal;
+        var shadowMaxNeededMargin = 0.45 * root.myView.itemShadow.maxSize;
         var shadowOpacity = (plasmoid.configuration.shadowOpacity) / 100;
         //! +40% of shadow opacity in percentage
         shadowOpacity = shadowOpacity + shadowOpacity*0.4;
@@ -82,7 +88,7 @@ AbilityHost.Metrics {
         shadowMaxNeededMargin = (shadowMaxNeededMargin * shadowOpacity);
 
         //! give some more space when items shadows are enabled and extremely big
-        if (root.enableShadows && metrics.margin.maxThickness < shadowMaxNeededMargin) {
+        if (root.myView.itemShadow.isEnabled && metrics.margin.maxThickness < shadowMaxNeededMargin) {
             return shadowMaxNeededMargin - metrics.margin.maxThickness;
         }
 

@@ -62,8 +62,9 @@ Item {
             maximumWidth: {
                 if (showsAudioBadge) {
                     return height;
-                } else if ( index === taskItem.indexer.firstVisibleItemIndex && !taskItem.containsMouse) {
-                    return (wrapper.mScale * (taskItem.metrics.iconSize - (root.enableShadows ? shadowSize/2 : 0)));
+                } else if ( index === taskItem.abilities.indexer.firstVisibleItemIndex && !taskItem.containsMouse) {
+                    var shadowSize = (taskItem.abilities.myView.itemShadow.isEnabled ? taskItem.abilities.myView.itemShadow.size/2 : 0);
+                    return (taskItem.parabolicItem.zoom * (taskItem.abilities.metrics.iconSize - shadowSize));
                 } else {
                     return 999999;
                 }
@@ -99,7 +100,7 @@ Item {
                 return theme.buttonFocusColor;
             }
 
-            style3d: root.badges3DStyle
+            style3d: taskItem.abilities.myView.badgesIn3DStyle
             textWithBackgroundColor: false
 
             proportion: {

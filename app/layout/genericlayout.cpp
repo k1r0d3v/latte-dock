@@ -768,16 +768,6 @@ void GenericLayout::renameLayout(QString newName)
     }
 }
 
-void GenericLayout::addNewView()
-{
-    if (!m_corona) {
-        return;
-    }
-
-    m_corona->addViewForLayout(name());
-    emit viewEdgeChanged();
-}
-
 void GenericLayout::addView(Plasma::Containment *containment, bool forceOnPrimary, int explicitScreen, Layout::ViewsMap *occupied)
 {
     qDebug() << "Layout :::: " << m_layoutName << " ::: addView was called... m_containments :: " << m_containments.size();
@@ -980,6 +970,7 @@ bool GenericLayout::initToCorona(Latte::Corona *corona)
     //! signals
     connect(this, &GenericLayout::activitiesChanged, this, &GenericLayout::updateLastUsedActivity);
     connect(m_corona->activitiesConsumer(), &KActivities::Consumer::currentActivityChanged, this, &GenericLayout::updateLastUsedActivity);
+    connect(m_corona->activitiesConsumer(), &KActivities::Consumer::runningActivitiesChanged, this, &GenericLayout::updateLastUsedActivity);
 
     connect(m_corona, &Plasma::Corona::containmentAdded, this, &GenericLayout::addContainment);
 
@@ -1672,6 +1663,24 @@ void GenericLayout::copyView(Plasma::Containment *containment)
     setBlockAutomaticLatteViewCreation(true);
 
     Layouts::ViewDelayedCreationData result = Layouts::Storage::self()->copyView(this, containment);
+    if (result.containment) {
+        addView(result.containment, result.forceOnPrimary, result.explicitScreen);
+
+        if (result.reactToScreenChange) {
+            result.containment->reactToScreenChange();
+        }
+    }
+
+    setBlockAutomaticLatteViewCreation(false);
+    emit viewEdgeChanged();
+}
+
+void GenericLayout::newView(const QString &templateFile)
+{
+    //! Don't create LatteView when the containment is created because we must update its screen settings first
+    setBlockAutomaticLatteViewCreation(true);
+
+    Layouts::ViewDelayedCreationData result = Layouts::Storage::self()->newView(this, templateFile);
     if (result.containment) {
         addView(result.containment, result.forceOnPrimary, result.explicitScreen);
 

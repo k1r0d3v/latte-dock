@@ -28,9 +28,10 @@ Item {
 
     readonly property bool containsMouse: (appletItem.parabolic.currentParabolicItem === _parabolicArea) || parabolicMouseArea.containsMouse
 
-    property real center:root.isHorizontal ?
-                             (wrapper.width + hiddenSpacerLeft.separatorSpace + hiddenSpacerRight.separatorSpace) / 2 :
-                             (wrapper.height + hiddenSpacerLeft.separatorSpace + hiddenSpacerRight.separatorSpace) / 2
+    readonly property bool isParabolicEnabled: parabolicAreaLoader.isParabolicEnabled
+    readonly property bool isThinTooltipEnabled: parabolicAreaLoader.isThinTooltipEnabled
+
+    property real center: (root.isHorizontal ? appletItem.width : appletItem.height) / 2
 
     MouseArea {
         id: parabolicMouseArea
@@ -44,8 +45,10 @@ Item {
         onEntered: {
             appletItem.parabolic.setCurrentParabolicItem(_parabolicArea);
 
-            var vIndex = appletItem.indexer.visibleIndex(index);
-            appletItem.parabolic.setCurrentParabolicItemIndex(vIndex);
+            if (isParabolicEnabled) {
+                var vIndex = appletItem.indexer.visibleIndex(index);
+                appletItem.parabolic.setCurrentParabolicItemIndex(vIndex);
+            }
 
             //! mouseX/Y can be trusted in that case in comparison to tasks that the relevant ParabolicAreaMouseArea does not
             _parabolicArea.parabolicEntered(mouseX, mouseY);
@@ -53,58 +56,66 @@ Item {
     }
 
     onParabolicEntered: {
+        if (isThinTooltipEnabled && !(isSeparator || isSpacer)) {
+            appletItem.thinTooltip.show(appletItem.tooltipVisualParent, applet.title);
+        }
+
         if (restoreAnimation.running) {
             restoreAnimation.stop();
         }
 
-        if (!(isSeparator || isSpacer)) {
-            root.showTooltipLabel(appletItem, applet.title);
-        }
-
-        if (appletItem.originalAppletBehavior || communicator.requires.parabolicEffectLocked || !parabolicEffectIsSupported) {
+        if (!appletItem.myView.isShownFully
+                || appletItem.originalAppletBehavior
+                || !appletItem.parabolicEffectIsSupported
+                || communicator.requires.parabolicEffectLocked
+                || communicator.indexerIsSupported) {
             return;
         }
 
-        if (root.isHalfShown || (root.latteApplet
-                                 && (root.latteApplet.noTasksInAnimation>0 || root.latteApplet.contextMenu))) {
-            return;
-        }
-
-        if (root.isHorizontal){
-            appletItem.layouts.currentSpot = mouseX;
-            calculateParabolicScales(mouseX);
-        } else{
-            appletItem.layouts.currentSpot = mouseY;
-            calculateParabolicScales(mouseY);
+        if (isParabolicEnabled) {
+            if (root.isHorizontal){
+                appletItem.layouts.currentSpot = mouseX;
+                calculateParabolicScales(mouseX);
+            } else{
+                appletItem.layouts.currentSpot = mouseY;
+                calculateParabolicScales(mouseY);
+            }
         }
     }
 
     onParabolicMove: {
-        if (root.isHalfShown || (root.latteApplet
-                                 && (root.latteApplet.noTasksInAnimation>0 || root.latteApplet.contextMenu))) {
+        if (!appletItem.myView.isShownFully
+                || appletItem.originalAppletBehavior
+                || !appletItem.parabolicEffectIsSupported
+                || communicator.requires.parabolicEffectLocked
+                || communicator.indexerIsSupported) {
             return;
         }
 
-        if( ((wrapper.zoomScale === 1 || wrapper.zoomScale === appletItem.parabolic.factor.zoom) && !parabolic.directRenderingEnabled) || parabolic.directRenderingEnabled) {
-            if (root.isHorizontal){
-                var step = Math.abs(appletItem.layouts.currentSpot-mouseX);
-                if (step >= appletItem.animations.hoverPixelSensitivity){
-                    appletItem.layouts.currentSpot = mouseX;
-                    calculateParabolicScales(mouseX);
+        if (isParabolicEnabled) {
+            if( ((wrapper.zoomScale === 1 || wrapper.zoomScale === appletItem.parabolic.factor.zoom) && !parabolic.directRenderingEnabled) || parabolic.directRenderingEnabled) {
+                if (root.isHorizontal){
+                    var step = Math.abs(appletItem.layouts.currentSpot-mouseX);
+                    if (step >= appletItem.animations.hoverPixelSensitivity){
+                        appletItem.layouts.currentSpot = mouseX;
+                        calculateParabolicScales(mouseX);
+                    }
                 }
-            }
-            else{
-                var step = Math.abs(appletItem.layouts.currentSpot-mouseY);
-                if (step >= appletItem.animations.hoverPixelSensitivity){
-                    appletItem.layouts.currentSpot = mouseY;
-                    calculateParabolicScales(mouseY);
+                else{
+                    var step = Math.abs(appletItem.layouts.currentSpot-mouseY);
+                    if (step >= appletItem.animations.hoverPixelSensitivity){
+                        appletItem.layouts.currentSpot = mouseY;
+                        calculateParabolicScales(mouseY);
+                    }
                 }
             }
         }
     }
 
     onParabolicExited: {
-        root.hideTooltipLabel();
+        if (isThinTooltipEnabled) {
+            appletItem.thinTooltip.hide(appletItem.tooltipVisualParent);
+        }
     }
 
     function calculateParabolicScales(currentMousePosition){
@@ -131,14 +142,12 @@ Item {
 
     function updateScale(nIndex, nScale, step){
         if(appletItem && !appletItem.containsMouse && (appletItem.index === nIndex)){
-            if ( ((parabolicEffectIsSupported && !appletItem.originalAppletBehavior) || appletItem.latteApplet)
+            if ( (parabolicEffectIsSupported && !appletItem.originalAppletBehavior && !appletItem.communicator.indexerIsSupported)
                     && (applet && applet.status !== PlasmaCore.Types.HiddenStatus)){
-                if(!appletItem.latteApplet){
-                    if(nScale >= 0) {
-                        wrapper.zoomScale = nScale + step;
-                    } else {
-                        wrapper.zoomScale = wrapper.zoomScale + step;
-                    }
+                if(nScale >= 0) {
+                    wrapper.zoomScale = nScale + step;
+                } else {
+                    wrapper.zoomScale = wrapper.zoomScale + step;
                 }
             }
         }

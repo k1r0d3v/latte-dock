@@ -22,10 +22,12 @@ import QtQuick.Controls 1.4
 import QtQuick.Layouts 1.3
 import QtGraphicalEffects 1.0
 import QtQuick.Dialogs 1.2
+import QtQuick.Controls 2.12 as QtQuickControls212
 
 import org.kde.plasma.core 2.0 as PlasmaCore
 import org.kde.plasma.components 2.0 as PlasmaComponents
 import org.kde.plasma.components 3.0 as PlasmaComponents3
+import org.kde.plasma.extras 2.0 as PlasmaExtras
 
 import org.kde.latte.core 0.2 as LatteCore
 import org.kde.latte.components 1.0 as LatteComponents
@@ -34,16 +36,16 @@ import org.kde.latte.private.containment 0.1 as LatteContainment
 import "../../controls" as LatteExtraControls
 
 PlasmaComponents.Page {
-    Layout.maximumWidth: content.width + content.Layout.leftMargin * 2
-    Layout.maximumHeight: content.height + units.smallSpacing * 2
+    id: page
+    width: content.width + content.Layout.leftMargin * 2
+    height: content.height + units.smallSpacing
 
     ColumnLayout {
         id: content
-
-        width: (dialog.appliedWidth - units.smallSpacing * 2) - Layout.leftMargin * 2
-        spacing: dialog.subGroupSpacing
         anchors.horizontalCenter: parent.horizontalCenter
         Layout.leftMargin: units.smallSpacing * 2
+        width: (dialog.appliedWidth - units.smallSpacing * 2) - Layout.leftMargin * 2
+        spacing: dialog.subGroupSpacing
 
         //! BEGIN: Shadows
         ColumnLayout {
@@ -156,6 +158,7 @@ PlasmaComponents.Page {
                     }
 
                     PlasmaComponents.Label {
+                        id: shadowOpacityLbl
                         enabled: showAppletShadow.checked
                         text: i18nc("number in percentage, e.g. 85 %","%0 %").arg(shadowOpacitySlider.value)
                         horizontalAlignment: Text.AlignRight
@@ -164,14 +167,10 @@ PlasmaComponents.Page {
                     }
                 }
 
-                LatteComponents.SubHeader {
-                    isFirstSubCategory: true
-                    text: i18n("Color")
-                }
-
                 RowLayout {
                     id: shadowColorRow
                     Layout.fillWidth: true
+                    Layout.topMargin: units.smallSpacing
                     spacing: 2
                     enabled: showAppletShadow.checked
 
@@ -190,7 +189,7 @@ PlasmaComponents.Page {
                         id: defaultShadowBtn
                         Layout.fillWidth: true
 
-                        text: i18nc("default shadow", "Default")
+                        text: i18nc("default shadow", "Default Color")
                         checked: plasmoid.configuration.shadowColorType === type
                         checkable: false
                         exclusiveGroup: shadowColorGroup
@@ -209,7 +208,7 @@ PlasmaComponents.Page {
                         id: themeShadowBtn
                         Layout.fillWidth: true
 
-                        text: i18nc("theme shadow", "Theme")
+                        text: i18nc("theme shadow", "Theme Color")
                         checked: plasmoid.configuration.shadowColorType === type
                         checkable: false
                         exclusiveGroup: shadowColorGroup
@@ -228,6 +227,7 @@ PlasmaComponents.Page {
                     PlasmaComponents.Button {
                         id: userShadowBtn
                         Layout.fillWidth: true
+                        Layout.minimumWidth: shadowOpacityLbl.width
                         height: parent.height
                         text: " "
 
@@ -332,11 +332,6 @@ PlasmaComponents.Page {
                 spacing: 0
                 enabled: plasmoid.configuration.animationsEnabled
 
-                LatteComponents.SubHeader {
-                    isFirstSubCategory: true
-                    text: i18n("Speed")
-                }
-
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 0
@@ -426,102 +421,160 @@ PlasmaComponents.Page {
                 spacing: units.smallSpacing
                 enabled: indicatorsSwitch.checked
 
-                LatteComponents.SubHeader {
+                /*   LatteComponents.SubHeader {
                     text: i18n("Style")
-                }
+                }*/
 
-                RowLayout {
+                Item {
                     Layout.fillWidth: true
-                    spacing: 2
+                    Layout.minimumHeight: tabBar.height
 
-                    property string type: latteView.indicator.type
+                    PlasmaComponents.TabBar {
+                        id: tabBar
+                        width: parent.width
 
-                    ExclusiveGroup {
-                        id: indicatorStyleGroup
-                    }
+                        property string type: latteView.indicator.type
 
-                    PlasmaComponents.Button {
-                        id: latteBtn
-                        Layout.fillWidth: true
-                        text: i18nc("latte indicator style", "Latte")
-                        checked: parent.type === type
-                        checkable: false
-                        exclusiveGroup:  indicatorStyleGroup
-                        tooltip: i18n("Use Latte style for your indicators")
+                        PlasmaComponents.TabButton {
+                            id: latteBtn
+                            text: i18nc("latte indicator style", "Latte")
+                            readonly property string type: "org.kde.latte.default"
 
-                        readonly property string type: "org.kde.latte.default"
+                            onCheckedChanged: {
+                                if (checked) {
+                                    latteView.indicator.type = type;
+                                }
+                            }
+                        }
+                        PlasmaComponents.TabButton {
+                            id: plasmaBtn
+                            text: i18nc("plasma indicator style", "Plasma")
+                            readonly property string type: "org.kde.latte.plasma"
 
-                        onPressedChanged: {
-                            if (pressed) {
-                                latteView.indicator.type = type;
+                            onCheckedChanged: {
+                                if (checked) {
+                                    latteView.indicator.type = type;
+                                }
+                            }
+                        }
+
+                        PlasmaComponents.TabButton {
+                            id: customBtn
+
+                            onCheckedChanged: {
+                                if (checked) {
+                                    customIndicator.onButtonIsPressed();
+                                }
+                            }
+
+                            LatteExtraControls.CustomIndicatorButton {
+                                id: customIndicator
+                                anchors.fill: parent
+                                implicitWidth: latteBtn.implicitWidth
+                                implicitHeight: latteBtn.implicitHeight
+
+                                checked: parent.checked
+                                comboBoxMinimumPopUpWidth: 1.5 * customIndicator.width
+
+                                onTypeChanged: {
+                                    if (tabBar.type === type) {
+                                        tabBar.selectTab(type);
+                                    }
+                                }
+                            }
+                        }
+
+                        function selectTab(type) {
+                            if (type === latteBtn.type) {
+                                tabBar.currentTab = latteBtn;
+                            } else if (type === plasmaBtn.type) {
+                                tabBar.currentTab = plasmaBtn;
+                            } else if (type === customIndicator.type) {
+                                tabBar.currentTab = customBtn;
+                            }
+                        }
+
+                        Connections {
+                            target: indicatorsStackView
+                            onCurrentItemChanged: {
+                                if (!indicatorsStackView.currentItem || !viewConfig.isReady) {
+                                    return;
+                                }
+
+                                tabBar.selectTab(indicatorsStackView.currentItem.type);
                             }
                         }
                     }
 
-                    PlasmaComponents.Button {
-                        Layout.fillWidth: true
-                        text: i18nc("plasma indicator style", "Plasma")
-                        checked: parent.type === type
-                        checkable: false
-                        exclusiveGroup:  indicatorStyleGroup
-                        tooltip: i18n("Use Plasma style for your indicators")
-
-                        readonly property string type: "org.kde.latte.plasma"
-
-                        onPressedChanged: {
-                            if (pressed) {
-                                latteView.indicator.type = type;
-                            }
-                        }
-                    }
-
-                    LatteExtraControls.CustomIndicatorButton {
-                        id: customIndicator
-                        Layout.fillWidth: true
-                        implicitWidth: latteBtn.implicitWidth
-                        implicitHeight: latteBtn.implicitHeight
-
-                        checked: parent.type === type
-                        exclusiveGroup:  indicatorStyleGroup
-                        comboBoxMinimumPopUpWidth: 1.5 * customIndicator.width
+                    Rectangle {
+                        anchors.bottom: tabBar.bottom
+                        anchors.left: tabBar.left
+                        anchors.leftMargin: 2
+                        width: tabBar.width - 2*2
+                        height: 2
+                        color: theme.textColor
+                        opacity: 0.25
                     }
                 }
 
                 //! BEGIN: Indicator specific sub-options
-                ColumnLayout {
-                    id: indicatorSpecificOptions
+                QtQuickControls212.StackView {
+                    id: indicatorsStackView
                     Layout.fillWidth: true
-                    Layout.topMargin: units.smallSpacing * 2
-                    spacing: 0
+                    Layout.maximumHeight: Layout.minimumHeight
                     enabled: latteView.indicator.enabled
 
-                    // @since 0.10.0
-                    readonly property bool deprecatedOptionsAreHidden: true
+                    property bool forwardSliding: true
 
                     readonly property int optionsWidth: dialog.optionsWidth
+                    readonly property bool deprecatedOptionsAreHidden: true // @since 0.10.0
 
-                    Component.onCompleted: {
-                        viewConfig.indicatorUiManager.setParentItem(indicatorSpecificOptions);
-                        viewConfig.indicatorUiManager.ui(latteView.indicator.type, latteView);
-                    }
+                    replaceEnter: Transition {
+                        ParallelAnimation {
+                            PropertyAnimation {
+                                property: "x"
+                                from: indicatorsStackView.forwardSliding ? -indicatorsStackView.width : indicatorsStackView.width
+                                to: 0
+                                duration: 350
+                            }
 
-                    Connections {
-                        target: latteView.indicator
-                        onPluginChanged: viewConfig.indicatorUiManager.ui(latteView.indicator.type, latteView);
-                    }
-
-                    Connections {
-                        target: viewConfig
-                        onIsReadyChanged: {
-                            if (viewConfig.isReady) {
-                                viewConfig.indicatorUiManager.ui(latteView.indicator.type, latteView);
+                            PropertyAnimation {
+                                property: "opacity"
+                                from: 0
+                                to: 1
+                                duration: 350
                             }
                         }
                     }
-                }
-                //! END: Indicator specific sub-options
-            }
+
+                    replaceExit: Transition {
+                        ParallelAnimation {
+                            PropertyAnimation {
+                                property: "x"
+                                from: 0
+                                to: indicatorsStackView.forwardSliding ? indicatorsStackView.width : -indicatorsStackView.width
+                                duration: 350
+                            }
+
+                            PropertyAnimation {
+                                property: "opacity"
+                                from: 1
+                                to: 0
+                                duration: 350
+                            }
+                        }
+                    }
+                } //! END: Indicator specific sub-options
+            } //! END: Active Indicator General Settings
         }
-        //! END: Active Indicator General Settings        
+    } //! END of Dynamic content
+
+
+    //! Manager / Handler of loading/showing/hiding indicator config uis
+    LatteExtraControls.IndicatorConfigUiManager {
+        id: indicatorUiManager
+        visible: false
+        stackView: indicatorsStackView
     }
+
 }
